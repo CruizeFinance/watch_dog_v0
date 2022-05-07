@@ -81,7 +81,7 @@ contract USDCPool is
     }
 
     /*
-     * @nonce calls by HegicCallOptions to lock the funds
+     * @nonce calls by CruizeCallOptions to lock the funds
      * @param amount Amount of funds that should be locked in an option
      */
     function lock(uint256 amount) external override onlyOwner {
@@ -93,7 +93,7 @@ contract USDCPool is
     }
 
     /*
-     * @nonce calls by HegicCallOptions to unlock the funds
+     * @nonce calls by CruizeCallOptions to unlock the funds
      * @param amount Amount of funds that should be unlocked in an expired option
      */
     function unlock(uint256 amount) external override onlyOwner {
@@ -102,7 +102,7 @@ contract USDCPool is
     }
 
     /*
-     * @nonce calls by HegicPutOptions to lock the premiums
+     * @nonce calls by CruizePutOptions to lock the premiums
      * @param amount Amount of premiums that should be locked
      */
     function sendPremium() external override payable onlyOwner {
@@ -110,7 +110,7 @@ contract USDCPool is
     }
 
     /*
-     * @nonce calls by HegicPutOptions to unlock the premiums after an option's expiraton
+     * @nonce calls by CruizePutOptions to unlock the premiums after an option's expiraton
      * @param amount Amount of premiums that should be unlocked
      */
     function unlockPremium(uint256 amount) external override onlyOwner {
@@ -119,7 +119,7 @@ contract USDCPool is
     }
 
     /*
-     * @nonce calls by HegicCallOptions to send funds to liquidity providers after an option's expiration
+     * @nonce calls by CruizeCallOptions to send funds to liquidity providers after an option's expiration
      * @param to Provider
      * @param amount Funds that should be sent
      */
