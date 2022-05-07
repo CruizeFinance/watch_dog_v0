@@ -1,0 +1,22 @@
+{
+  "name": "watch_dog_v0",
+  "version": "1.0.0",
+  "description": "This is the first version of the cruize protection contract. ",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Prithviraj Murthy",
+  "license": "ISC",
+  "dependencies": {
+    "@chainlink/contracts": "^0.4.0",
+    "@openzeppelin/cli": "^2.8.2",
+    "openzeppelin-solidity": "4.6.0"
+  },
+  "devDependencies": {
+    "@openzeppelin/truffle-upgrades": "^1.15.0"
+  }
+}
