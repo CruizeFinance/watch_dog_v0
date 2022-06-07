@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.4.22 <0.9.0;
+pragma solidity ^0.8.0; 
 import "./LiquidityPoolInterfaces.sol";
-
 /**
  * @author Prithviraj Murthy
  * @title Cruize USDC Liquidity Pool
@@ -16,8 +15,8 @@ contract USDCPool is
     uint256 public lockupPeriod = 2 weeks;
     uint256 public lockedAmount;
     uint256 public lockedPremium;
-    mapping(address => uint256) private lastProvideTimestamp;
-
+    // mapping(address => uint256) private lastProvideTimestamp;
+mapping(address => uint256) private lastProvideTimestamp;
     /*
      * @nonce Sends premiums to the liquidity pool
      **/
@@ -35,12 +34,12 @@ contract USDCPool is
     /*
      * @nonce A provider supplies USDC to the pool and receives writeUSDC tokens
      * @param minMint Minimum amount of tokens that should be received by a provider.
-                      Calling the provide function will require the minimum amount of tokens to be minted.
-                      The actual amount that will be minted could vary but can only be higher (not lower) than the minimum value.
+      Calling the provide function will require the minimum amount of tokens to be minted.
+      The actual amount that will be minted could vary but can only be higher (not lower) than the minimum value.
      * @return mint Amount of tokens to be received
      */
     function provide(uint256 minMint) external payable returns (uint256 mint) {
-        lastProvideTimestamp[msg.sender] = now;
+        lastProvideTimestamp[msg.sender] = block.timestamp;
         uint supply = totalSupply();
         uint balance = totalBalance();
         if (supply > 0 && balance > 0)
@@ -62,7 +61,7 @@ contract USDCPool is
      */
     function withdraw(uint256 amount, uint256 maxBurn) external returns (uint256 burn) {
         require(
-            lastProvideTimestamp[msg.sender].add(lockupPeriod) <= now,
+            lastProvideTimestamp[msg.sender].add(lockupPeriod) <= block.timestamp,
             "Pool: Withdrawal is locked up"
         );
         require(
@@ -77,7 +76,7 @@ contract USDCPool is
 
         _burn(msg.sender, burn);
         emit Withdraw(msg.sender, amount, burn);
-        msg.sender.transfer(amount);
+        payable(msg.sender).transfer(amount);
     }
 
     /*
@@ -105,7 +104,7 @@ contract USDCPool is
      * @nonce calls by CruizePutOptions to lock the premiums
      * @param amount Amount of premiums that should be locked
      */
-    function sendPremium() external override payable onlyOwner {
+    function sendPremium() external payable onlyOwner {
         lockedPremium = lockedPremium.add(msg.value);
     }
 
@@ -161,10 +160,11 @@ contract USDCPool is
         return address(this).balance.sub(lockedPremium);
     }
 
-    function _beforeTokenTransfer(address from, address, uint256) internal override {
+    function _beforeTokenTransfer(address from, address, uint256) internal view  override {
         require(
-            lastProvideTimestamp[from].add(lockupPeriod) <= now,
+            lastProvideTimestamp[from].add(lockupPeriod) <= block.timestamp,
             "Pool: Withdrawal is locked up"
         );
     }
+    //TODO : optimize the require statement .. 
 }

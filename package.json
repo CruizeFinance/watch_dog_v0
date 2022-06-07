@@ -12,8 +12,13 @@
   "author": "Prithviraj Murthy",
   "license": "ISC",
   "dependencies": {
-    "@chainlink/contracts": "^0.4.0",
+    "@chainlink/contracts": "^0.4.1",
     "@openzeppelin/cli": "^2.8.2",
+    "@openzeppelin/contracts": "^4.6.0",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0",
+    "chai": "^4.3.6",
+    "chai-as-promised": "^7.1.1",
+    "mocha": "^10.0.0",
     "openzeppelin-solidity": "4.6.0"
   },
   "devDependencies": {
