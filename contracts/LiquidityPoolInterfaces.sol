@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.4.22 <0.9.0;
+pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/upgrades/contracts/ownership/Ownable.sol";
-import "@chainlink/contracts/src/v0.6/dev/AggregatorInterface.sol";
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 
 interface LiquidityPoolInterfaces {
@@ -24,12 +22,12 @@ interface LiquidityPoolInterfaces {
 }
 
 
-interface IERCLiquidityPool is ILiquidityPool {
+interface IERCLiquidityPool  {
     function sendPremium(uint256 amount) external;
     function token() external view returns (IERC20);
 }
 
 
-interface IETHLiquidityPool is ILiquidityPool {
+interface IETHLiquidityPool  {
     function sendPremium() external payable;
 }

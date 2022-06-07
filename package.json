@@ -1,5 +1,5 @@
 {
-  "name": "cruize protocol",
+  "name": "cruize-protocol",
   "version": "1.0.0",
   "description": "This is the first version of the cruize protection contract. ",
   "directories": {
@@ -16,6 +16,7 @@
     "build": "hardhat compile",
     "test:logs": "hardhat test --logs",
     "watch": "hardhat watch compilation",
+    "test:watch": "hardhat watch test",
     "lint:ts": "eslint --max-warnings 0",
     "lint": "yarn fmt:sol && yarn lint:ts",
     "precommit": "yarn fmt:sol && yarn lint",
@@ -45,7 +46,7 @@
     "@nomiclabs/hardhat-ganache": "^2.0.1",
     "@nomiclabs/hardhat-waffle": "^2.0.0",
     "@openeth/truffle-typings": "^0.0.5",
-    "@openzeppelin/contracts": "^3.3.0",
+    "@openzeppelin/contracts": "^4.6.0",
     "@openzeppelin/test-helpers": "^0.5.9",
     "@typechain/ethers-v5": "^7.0.1",
     "@typechain/hardhat": "^2.3.0",
