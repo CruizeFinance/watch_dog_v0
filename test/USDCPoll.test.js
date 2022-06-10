@@ -18,6 +18,9 @@ before("USDCPool", async () => {
   console.log(UsdcPool.address);
 });
 
+
+
+const test = 1;
 describe("testing Contract functions ..", function() {
   it("provide liquidity", async () => {
     let USDC_Amount = 2;
