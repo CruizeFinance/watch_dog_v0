@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.4.22 <0.9.0;
-
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/upgrades/contracts/ownership/Ownable.sol";
-import "@chainlink/contracts/src/v0.6/dev/AggregatorInterface.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorInterface.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
-
-
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 interface LiquidityPoolInterfaces {
     event Withdraw(
         address indexed account,
@@ -24,12 +22,12 @@ interface LiquidityPoolInterfaces {
 }
 
 
-interface IERCLiquidityPool is ILiquidityPool {
+interface IERCLiquidityPool is LiquidityPoolInterfaces {
     function sendPremium(uint256 amount) external;
     function token() external view returns (IERC20);
 }
 
 
-interface IETHLiquidityPool is ILiquidityPool {
+interface IETHLiquidityPool is LiquidityPoolInterfaces {
     function sendPremium() external payable;
 }

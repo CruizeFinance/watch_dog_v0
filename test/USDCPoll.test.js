@@ -8,13 +8,13 @@ let UsdcPool;
 before("USDCPool", async () => {
   [singer, user1] = await ethers.getSigners();
   //deploying smart contract .
-  // const usdcPool = await ethers.getContractFactory("USDCPool");
-  //  UsdcPool = await usdcPool.deploy();
-  // await UsdcPool.deployed();
+  const usdcPool = await ethers.getContractFactory("USDCPool");
+   UsdcPool = await usdcPool.deploy();
+  await UsdcPool.deployed();
 
   // working on a specifce deployed address ..
-  const Exchange = await ethers.getContractFactory("USDCPool", singer);
-  UsdcPool = Exchange.attach("0xa513E6E4b8f2a923D98304ec87F64353C4D5C853");
+  // const Exchange = await ethers.getContractFactory("USDCPool", singer);
+  // UsdcPool = Exchange.attach("0xa513E6E4b8f2a923D98304ec87F64353C4D5C853");
   console.log(UsdcPool.address);
 });
 
