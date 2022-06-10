@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: MIT
+import "hardhat/console.sol";
 pragma solidity >=0.4.22 <0.9.0;
 import "./LiquidityPoolInterfaces.sol";
-
 /**
  * @author Prithviraj Murthy
  * @title Cruize USDC Liquidity Pool
  * @notice ####
  */
+// 0x077cFeFD500D9a98BFa203c1aE2A4916054F75be --> USDC pool contract Address ..
+//https://kovan.etherscan.io/tx/0xc607d882cb1a2e75943581caa500dae9c36942eeb14cbdefc0f0e7e0fc72e71f -- transfer
+// https://kovan.etherscan.io/token/0x077cfefd500d9a98bfa203c1ae2a4916054f75be --> Write USDC..
+// https://kovan.etherscan.io/address/0xb7a4F3E9097C08dA09517b5aB877F7a917224ede#writeContract -- USDC coin ..
 contract USDCPool is
     LiquidityPoolInterfaces,
     Ownable,
@@ -18,6 +22,7 @@ contract USDCPool is
     uint256 public lockedPremium;
     mapping(address => uint256) private lastProvideTimestamp;
 
+	 address constant USDC_Token_Address = 0xb7a4F3E9097C08dA09517b5aB877F7a917224ede;
     /*
      * @nonce Sends premiums to the liquidity pool
      **/
@@ -39,30 +44,42 @@ contract USDCPool is
                       The actual amount that will be minted could vary but can only be higher (not lower) than the minimum value.
      * @return mint Amount of tokens to be received
      */
-    function provide(uint256 minMint) external payable returns (uint256 mint) {
-        lastProvideTimestamp[msg.sender] = now;
-        uint supply = totalSupply();
-        uint balance = totalBalance();
-        if (supply > 0 && balance > 0)
-            mint = msg.value.mul(supply).div(balance.sub(msg.value));
-        else
-            mint = msg.value.mul(1000);
-
-        require(mint >= minMint, "Pool: Mint limit is too large");
-        require(mint > 0, "Pool: Amount is too small");
-
-        _mint(msg.sender, mint);
-        emit Provide(msg.sender, msg.value, mint);
+    function provide(uint256 minMint,uint256 total_USDC_value) external payable returns (uint256 mint) {
+        require( total_USDC_value> 0,"Pool: Amount is too small");
+		// USDC approve must be called from the front-end before calling this function.
+        // lastProvideTimestamp[msg.sender] = block.timestamp;
+        // uint supply = totalSupply();
+        // uint balance = totalBalance();
+        // if (supply > 0 && balance > 0)
+        //     mint = total_USDC_value.mul(supply).div(balance.sub(total_USDC_value));
+        // else
+        //     mint = total_USDC_value.mul(1000);
+        // require(mint >= minMint, "Pool: Mint limit is too large");
+		//Loading the USDC coin Contract ..
+// 		  IERC20 token  = IERC20(USDC_Token_Address);
+// //		transferFrom must return true ...
+// 		// require(token.approve(msg.sender,total_USDC_value),'token is not approved.');
+// 		// transfering USDC form user account to contract
+//         require(
+//           token.transferFrom(
+//             msg.sender,
+//             address(this),
+//           total_USDC_value),"Token transfer fails, Please try again."
+//         );
+        // _mint(msg.sender, mint);
+		console.log('this is value of msg vlaue ',msg.value);
+        emit Provide(msg.sender,total_USDC_value, 1);
     }
-
     /*
      * @nonce Provider burns writeUSDC and receives USDC from the pool
      * @param amount Amount of USDC to receive
      * @return burn Amount of tokens to be burnt
      */
     function withdraw(uint256 amount, uint256 maxBurn) external returns (uint256 burn) {
+		// if some one call this function from the ehterscan then it can be hack.
+		require(amount <= balanceOf(msg.sender) && amount > 0);
         require(
-            lastProvideTimestamp[msg.sender].add(lockupPeriod) <= now,
+            lastProvideTimestamp[msg.sender].add(lockupPeriod) <= block.timestamp,
             "Pool: Withdrawal is locked up"
         );
         require(
@@ -70,14 +87,13 @@ contract USDCPool is
             "Pool Error: Not enough funds on the pool contract. Please lower the amount."
         );
         burn = amount.mul(totalSupply()).div(totalBalance());
-
         require(burn <= maxBurn, "Pool: Burn limit is too small");
-        require(burn <= balanceOf(msg.sender), "Pool: Amount is too large");
+        require(burn <= balanceOf(msg.sender) , "Pool: Amount is too large");
         require(burn > 0, "Pool: Amount is too small");
-
         _burn(msg.sender, burn);
+        IERC20 token = IERC20(USDC_Token_Address);
+		token.transfer(msg.sender,amount);
         emit Withdraw(msg.sender, amount, burn);
-        msg.sender.transfer(amount);
     }
 
     /*
@@ -105,7 +121,8 @@ contract USDCPool is
      * @nonce calls by CruizePutOptions to lock the premiums
      * @param amount Amount of premiums that should be locked
      */
-    function sendPremium() external override payable onlyOwner {
+    function sendPremium() external  payable onlyOwner {
+		// need to talk here.
         lockedPremium = lockedPremium.add(msg.value);
     }
 
@@ -125,8 +142,9 @@ contract USDCPool is
      */
     function send(address payable to, uint256 amount)
         external
-        override
+      override
         onlyOwner
+        
     {
         require(to != address(0));
         require(lockedAmount >= amount, "Pool Error: You are trying to unlock more premiums than have been locked for the contract. Please lower the amount.");
@@ -161,10 +179,12 @@ contract USDCPool is
         return address(this).balance.sub(lockedPremium);
     }
 
-    function _beforeTokenTransfer(address from, address, uint256) internal override {
+    function _beforeTokenTransfer(address from, address, uint256) internal view override {
         require(
-            lastProvideTimestamp[from].add(lockupPeriod) <= now,
+            lastProvideTimestamp[from].add(lockupPeriod) <= block.timestamp,
             "Pool: Withdrawal is locked up"
         );
     }
+    //TODO : optimize the require statement .. 
+
 }
