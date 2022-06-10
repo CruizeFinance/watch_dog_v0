@@ -20,7 +20,7 @@ before("USDCPool", async () => {
 
 
 
-const test = 1;
+
 describe("testing Contract functions ..", function() {
   it("provide liquidity", async () => {
     let USDC_Amount = 2;
