@@ -8,4 +8,4 @@ data
 artifacts
 .idea
 yarn.lock
-yarn-error.log
+yarn-error.logcs

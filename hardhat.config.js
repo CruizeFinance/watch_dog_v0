@@ -1,7 +1,7 @@
 require("@nomiclabs/hardhat-waffle");
 require('dotenv').config({path:__dirname+'/.env'})
 module.exports = {
-  defaultNetwork: "localhost",
+  defaultNetwork: "kovan",
   networks: {
     localhost: {
       url: "http://127.0.0.1:8545"

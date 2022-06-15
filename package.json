@@ -2,7 +2,7 @@
   "name": "watch_dog_v0",
   "version": "1.0.0",
   "description": "This is the first version of the cruize protection contract. ",
-  "main": "truffle-config.js",
+  "main": "hardhat.config.js",
   "directories": {
     "test": "test"
   },
