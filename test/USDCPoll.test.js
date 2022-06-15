@@ -1,67 +1,75 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 var should = require('chai').should()
-
+const {utils, BigNumber} = require('ethers');
 const assert = require("chai").assert;
 let [singer, user1] = "";
 let UsdcPool;
+const USDCCount  = 1000;
 before("USDCPool", async () => {
   [singer, user1] = await ethers.getSigners();
+  // console.log(singer)
   //deploying smart contract .
-  const usdcPool = await ethers.getContractFactory("USDCPool");
-   UsdcPool = await usdcPool.deploy();
-  await UsdcPool.deployed();
+  // const usdcPool = await ethers.getContractFactory("USDCPool");
+  //  UsdcPool = await usdcPool.deploy();
+  // await UsdcPool.deployed();
 
   // working on a specifce deployed address ..
-  // const Exchange = await ethers.getContractFactory("USDCPool", singer);
-  // UsdcPool = Exchange.attach("0xa513E6E4b8f2a923D98304ec87F64353C4D5C853");
+  const Exchange = await ethers.getContractFactory("USDCPool", singer);
+  UsdcPool = Exchange.attach("0x2FF3049dCdf75D86b2F584dF13b19D9A3560b378");
   // console.log(UsdcPool.address);
 });
 
+function convertToNumber(bigNumber){
+  let res = utils.formatEther(bigNumber);
+  res = (+res).toFixed(4);
+return res;
+}
+const user_WUSDC_Balanace = async()=>{
+  let TotalBalnace = await UsdcPool.callStatic.balanceOf(singer.address);
+  TotalBalnace = convertToNumber(TotalBalnace);
+  return TotalBalnace;
+}
 describe("testing Contract functions ..", function() {
   it("provide liquidity", async () => {
-    let USDC_Amount = 2;
-    let min_Token = 2;
-    // getting the total supply and total balance..
-    let totalSupply = await UsdcPool.callStatic.totalSupply();
-    let balance = await UsdcPool.callStatic.totalBalance();
-
-    //converting big number into INT.
-    balance = balance.toNumber();
-    totalSupply = totalSupply.toNumber();
-    //formula for getting the value of WUSDC that user willl receive.
-    balance += 1;
-    let Accepted_WUSDC = Math.floor(
-      (USDC_Amount * totalSupply) / (balance - 1)
-    );
-    console.log("Accepted USDC", Accepted_WUSDC);
-    let result = await UsdcPool.connect(singer).provide(min_Token, {
-      value: USDC_Amount,
+    let userBalance =  await user_WUSDC_Balanace();
+    console.log(`Total WUSD owns by  ${singer.address}  before the provide tx  - > ${userBalance}`);
+    let result = await UsdcPool.connect(singer).provide(USDCCount,{
+      value: 0,
     });
     //getting the events.
     const contractReceipt = await result.wait();
-    let WUSDC = await contractReceipt.events[1].args.writeAmount;
+    // console.log(contractReceipt)
+    let WUSDC = await contractReceipt.events[1].args.value;
+    // console.log(WUSDC)
     assert.notEqual(WUSDC, 0);
     assert.notEqual(WUSDC, "");
     assert.notEqual(WUSDC, null);
     assert.notEqual(WUSDC, undefined);
-    assert.equal(WUSDC.toNumber(), Accepted_WUSDC || USDC_Amount * 1000);
+    assert.equal(WUSDC, USDCCount);
+    userBalance =  await user_WUSDC_Balanace();
+    console.log(`view Provied  Tx -> https://kovan.etherscan.io/tx/${contractReceipt.transactionHash}`)
+    console.log(`Total WUSD  owns by ${singer.address}  after the provide tx - > ${userBalance}`);
+  });
 
-    // uint265 never takes an -ve value it will go out of bound .. also you can't pass an -ve in value ..
-    // result = await USDCPool.provide(-1, {
-    //   from: accounts[1],
-    //   value: 1,
-    // }).should.be.rejectedWith("Pool: Amount is too small");
+  it("Total USer balance and withdraw USDC", async () => {
+   let userBalance =  await user_WUSDC_Balanace();
+    console.log(`Total WUSD  owns by  ${singer.address}  before the withdraw tx  - > ${userBalance}`);
 
-    result = await UsdcPool.connect(singer)
-      .provide(2000, {
-        value: 1,
-      })
-      .should.be.revertedWith("Pool: Mint limit is too large");
-
-    result = await UsdcPool.connect(singer)
-      .provide(0, {
-        value: 0,
-      }).should.be.revertedWith("Pool: Amount is too small");
+    // withdraw function
+    let result = await UsdcPool.connect(singer).withdraw(USDCCount, {
+      value: 0,
+    });
+    const contractReceipt = await result.wait();
+    let USDC = await contractReceipt.events[1].args.value
+    assert.notEqual(USDC, 0);
+    assert.notEqual(USDC, "");
+    assert.notEqual(USDC, null);
+    assert.notEqual(USDC, undefined);
+    console.log('USDC value that user get ',USDC)
+    // assert.equal(USDC, USDCCount);
+    userBalance =  await user_WUSDC_Balanace();
+    console.log(`view withdraw Tx -> https://kovan.etherscan.io/tx/${contractReceipt.transactionHash}`)
+    console.log(`Total WUSD owns by  ${singer.address}  after the withdraw tx - > ${userBalance}`);
   });
 });
