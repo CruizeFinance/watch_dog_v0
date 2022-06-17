@@ -7,7 +7,7 @@
     "test": "test"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "hardhat test --logs"
   },
   "author": "Prithviraj Murthy",
   "license": "ISC",
@@ -15,10 +15,13 @@
     "@chainlink/contracts": "^0.4.0",
     "@openzeppelin/cli": "^2.8.2",
     "@openzeppelin/contracts": "^4.6.0",
+    "@openzeppelin/contracts-upgradeable": "^4.6.0",
+    "@uniswap/lib": "^4.0.1-alpha",
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
     "chai-as-promised": "^7.1.1",
     "dotenv": "^16.0.1",
     "hardhat": "^2.9.9",
+    "hardhat-tracer": "^1.1.0-rc.6",
     "mocha": "^10.0.0",
     "openzeppelin-solidity": "4.6.0"
   },
