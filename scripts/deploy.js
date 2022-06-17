@@ -2,12 +2,17 @@
 // but useful for running the script in a standalone fashion through `node <script>`.
 //
 // When running the script with `npx hardhat run <script>` you'll find the Hardhat
+
+const { ethers } = require("hardhat");
+
 // Runtime Environment's members available in the global scope.
 const main = async () => {
-    const [deployer] = await ethers.getSigners();
-    const Token = await ethers.getContractFactory("USDCPool");
-    const token = await Token.deploy();
-    console.log("this is deployed token", token.address);
+    const usdcContract = await ethers.getContractFactory("USDCPool");
+    const usdcToken = await usdcContract.deploy();
+    const assetContract = await ethers.getContractFactory("AssetPool");
+    const assetToken = await assetContract.deploy();
+    console.log("usdc pool deployed at", usdcToken.address);
+    console.log("asset pool deployed at", assetToken.address);
   };
   
   main()

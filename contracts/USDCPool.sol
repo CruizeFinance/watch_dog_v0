@@ -10,10 +10,11 @@ import "./LiquidityPoolInterfaces.sol";
 contract USDCPool is
     LiquidityPoolInterfaces,
     Ownable,
+    ReentrancyGuard,
     ERC20("Cruize USDC LP Token", "writeUSDC")
 {
     using SafeMath for uint256;
-    address constant USDC_Token_Address = 0xb7a4F3E9097C08dA09517b5aB877F7a917224ede;
+    address internal constant USDC_Token_Address = 0xb7a4F3E9097C08dA09517b5aB877F7a917224ede;
 
     /*
      * @nonce Sends premiums to the liquidity pool
@@ -27,7 +28,7 @@ contract USDCPool is
       The actual amount that will be minted could vary but can only be higher (not lower) than the minimum value.
      * @return mint Amount of tokens to be received
      */
-    function provide(uint256 USDC_Count) external returns (uint256) {
+    function provide(uint256 USDC_Count) external nonReentrant returns (uint256) {
         // we will send form the front
         require(USDC_Count > 0, "Pool: Amount is too small");
         
@@ -46,7 +47,7 @@ contract USDCPool is
      * @param amount Amount of USDC to receive
      * @return burn Amount of tokens to be burnt
      */
-    function withdraw(uint256 WUSDC_Count) external returns (uint256) {
+    function withdraw(uint256 WUSDC_Count) external nonReentrant returns (uint256) {
         require(
             WUSDC_Count <= balanceOf(msg.sender),
             "Pool: Amount is too large"
