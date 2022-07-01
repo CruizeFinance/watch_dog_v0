@@ -7,5 +7,5 @@ cache
 data
 artifacts
 .idea
+yarn-error.log
 yarn.lock
-yarn-error.logcs
