@@ -20,6 +20,14 @@ contract USDCPool is
     event Provide(address indexed account, uint256 amount);
     event WithdrawEvent(address indexed account, uint256 amount);
 
+    /***
+     * @notice   decimals       override the decimal function's
+     * */
+
+    function decimals() public view virtual override returns (uint8) {
+        return 6;
+    }
+
     /*
      * @nonce A provider supplies USDC to the pool and receives writeUSDC tokens
      * @param USDC_Count amount of USDC to deposit.
@@ -37,7 +45,7 @@ contract USDCPool is
             token.transferFrom(msg.sender, address(this), USDC_Count),
             "Token transfer fails, Please try again."
         );
-        _mint(msg.sender, USDC_Count * 10**uint(decimals()));
+        _mint(msg.sender, USDC_Count);
         emit Provide(msg.sender, USDC_Count);
         return USDC_Count;
     }
@@ -57,7 +65,7 @@ contract USDCPool is
             "Pool: Amount is too large"
         );
         require(WUSDC_Count > 0, "Pool: Amount is too small");
-        _burn(msg.sender, WUSDC_Count * 10**uint(decimals()));
+        _burn(msg.sender, WUSDC_Count);
         IERC20 token = IERC20(USDC_Token_Address);
         token.transfer(msg.sender, WUSDC_Count);
         emit WithdrawEvent(msg.sender, WUSDC_Count);
