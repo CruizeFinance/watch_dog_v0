@@ -3,10 +3,8 @@ node_modules
 coverage
 coverage.json
 typechain
+
+#Hardhat files
 cache
 data
 artifacts
-.idea
-yarn-error.log
-yarn.lock
-package-lock.json
