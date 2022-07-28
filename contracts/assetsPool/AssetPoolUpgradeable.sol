@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-import "../interfaces/LiquidityPoolInterfaces.sol";
 import "./proxy/Proxy.sol";
+import "../interfaces/LiquidityPoolInterfaces.sol";
+import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 
 /**
  * @author CRUIZE.
