@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.4.22 <0.9.0;
-import "../interfaces/LiquidityPoolInterfaces.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -38,12 +37,11 @@ contract USDCPool is
         nonReentrant
         returns (uint256)
     {
-        require(USDC_Count > 0, "Pool: Amount is too small");
+        require(USDC_Count > 0, "ZERO_AMOUNT");
 
         IERC20 token = IERC20(USDC_Token_Address);
         require(
-            token.transferFrom(msg.sender, address(this), USDC_Count),
-            "Token transfer fails, Please try again."
+            token.transferFrom(msg.sender, address(this), USDC_Count)
         );
         _mint(msg.sender, USDC_Count);
         emit Provide(msg.sender, USDC_Count);
@@ -59,12 +57,11 @@ contract USDCPool is
         external
         nonReentrant
         returns (uint256)
-    {
+    { require(WUSDC_Count > 0,"ZERO_AMOUNT");
         require(
             WUSDC_Count <= balanceOf(msg.sender),
-            "Pool: Amount is too large"
+            "NOT_ENOUGH_BALANCE"
         );
-        require(WUSDC_Count > 0, "Pool: Amount is too small");
         _burn(msg.sender, WUSDC_Count);
         IERC20 token = IERC20(USDC_Token_Address);
         token.transfer(msg.sender, WUSDC_Count);
