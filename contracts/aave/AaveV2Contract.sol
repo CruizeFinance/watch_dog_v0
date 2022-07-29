@@ -14,39 +14,50 @@ contract AaveWrapper {
         uint256 amount;
         uint256 price;
     }
+    struct ASSETS {
+        address assetAddress;
+        address priceFeedAddress;
+    }
     AggregatorV3Interface internal priceFeed;
     mapping(address => mapping(string => DEPOSITS)) public deposits;
-
+    mapping(string => ASSETS) public supplyAssets;
     IPoolV2 public constant POOL =
         IPoolV2(address(0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9));
 
-    IPoolAddressesProvider public constant POOL_ADDRESS_PROVIDER =
+    IPoolAddressesProvider public constant WETHGATEWAY =
         IPoolAddressesProvider(
-            address(0x6878e137738Db14E27c5972E03dB4a2C270Bc694)
+            address(0xcc9a0B7c43DC2a5F023Bb9b738E45B0Ef6B06E04)
         );
-    IERC20 public constant SUPPLY_ASSET =
-        IERC20(address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)); // WETH
     IERC20 public constant BORROW_ASSET =
         IERC20(address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48)); // USDC
 
-
-    constructor() {
-        priceFeed = AggregatorV3Interface(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
-    }
-
-     function getLatestPrice() public view returns (int) {
+    function getLatestPrice(address priceAddress) public view returns (int) {
+        priceFeed = AggregatorV3Interface(priceAddress);
         (
             int price,
         ) = priceFeed.latestRoundData();
         return price;
     }
 
-    function deposit(uint256 amount) public {
-        SUPPLY_ASSET.approve(address(POOL), amount);
-        ethPrice = getLatestPrice();
-        deposits[msg.sender]["ETH"]["amount"] = amount;
-        deposits[msg.sender]["ETH"]["price"] = ethPrice;
-        POOL.supply(address(SUPPLY_ASSET), amount, address(this), 0);
+    function addSupplyAsset(string assetName, address assetAddress, address priceFeedAddress) public onlyOwner {
+        supplyAssets[assetName]["assetAddress"] = assetAddress;
+        supplyAssets[assetName]["priceFeedAddress"] = priceFeedAddress;
+    }
+
+    function deposit(uint256 amount, string memory assetName) public payable {
+        require(supplyAssets[assetName].assetAddress != address(0), "1: Asset not allowed.");
+        assetPrice = getLatestPrice(supplyAssets[assetName.priceAddress]);
+        deposits[msg.sender][assetName]["amount"] = amount;
+        deposits[msg.sender][assetName]["price"] = assetPrice;
+        if (msg.value > 0) {
+            // way to call a payable function
+            WETHGATEWAY.depositEth(address(POOL), address(this), 0){value: msg.value};
+        }
+        else {
+            SUPPLY_ASSET.transferFrom(msg.sender, address(this), amount);
+            SUPPLY_ASSET.approve(address(POOL), amount);
+            POOL.deposit(address(SUPPLY_ASSET), amount, address(this), 0);
+        }
     }
 
 }
