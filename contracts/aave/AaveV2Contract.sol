@@ -1,28 +1,27 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.15;
 
-import "../interfaces/IPoolV3.sol";
 import "../interfaces/LiquidityPoolInterfaces.sol";
 import "../interfaces/IPoolAddressesProvider.sol";
-import "hardhat/console.sol";
 import "../libraries/PercentageMath.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 contract AaveWrapper {
     using PercentageMath for uint256;
-    struct DEPOSITS {
+    struct Desposits {
         uint256 amount;
         uint256 price;
     }
-    struct ASSETS {
+    struct Assets {
         address assetAddress;
         address priceFeedAddress;
     }
     AggregatorV3Interface internal priceFeed;
-    mapping(address => mapping(string => DEPOSITS)) public deposits;
-    mapping(string => ASSETS) public supplyAssets;
+    address aaveV2LendingPool = 0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9;
+    mapping(address => mapping(string => Deposits)) public deposits;
+    mapping(string => Assets) public supplyAssets;
     IPoolV2 public constant POOL =
-        IPoolV2(address(0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9));
+        IPoolV2(address(aaveV2LendingPool));
 
     IPoolAddressesProvider public constant WETHGATEWAY =
         IPoolAddressesProvider(
@@ -54,9 +53,11 @@ contract AaveWrapper {
             WETHGATEWAY.depositEth(address(POOL), address(this), 0){value: msg.value};
         }
         else {
-            SUPPLY_ASSET.transferFrom(msg.sender, address(this), amount);
-            SUPPLY_ASSET.approve(address(POOL), amount);
-            POOL.deposit(address(SUPPLY_ASSET), amount, address(this), 0);
+            require(amount > 0, "1: Amount cannot be zero");
+            IERC20 supplyAsset = IERC20(address(supplyAssets[assetName].assetAddress));
+            supplyAsset.transferFrom(msg.sender, address(this), amount);
+            supplyAsset.approve(address(POOL), amount);
+            POOL.deposit(address(supplyAsset), amount, address(this), 0);
         }
     }
 
