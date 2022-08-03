@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.8.10;
+pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
 import {IPoolAddressesProvider} from "./IPoolAddressesProvider.sol";
-import {DataTypes} from "../DataTypes.sol";
+import {DataTypes} from "../libraries/DataTypes.sol";
 
-interface ILendingPoolV2 {
+interface IPoolV2 {
   /**
    * @dev Emitted on deposit()
    * @param reserve The address of the underlying asset of the reserve
