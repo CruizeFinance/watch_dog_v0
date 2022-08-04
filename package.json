@@ -9,8 +9,8 @@
   "scripts": {
     "build": "hardhat compile",
     "test": "hardhat test --logs",
-    "build:watch":"hardhat watch compilation",
-    "test:watch":"hardhat watch test"
+    "build:watch": "hardhat watch compilation",
+    "test:watch": "hardhat watch test"
   },
   "author": "Prithviraj Murthy",
   "license": "ISC",
