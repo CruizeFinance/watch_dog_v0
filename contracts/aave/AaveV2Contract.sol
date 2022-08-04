@@ -10,7 +10,15 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-contract AaveWrapper is Ownable {
+/**
+ * @author CRUIZE.
+ * @title Cruize AaveV2Wrapper.
+ * @notice Aave version 2 contract integration to borrow a 20% loan against the user's deposited asset.
+ * 1 - User's deposited asset from the asset pool is deposited into Aave.
+ * 2 - A 20% loan is borrowed in USDC.
+ * 3 - The borrowed USDC is deposited into our USDC pool.
+ */
+contract AaveV2Wrapper is Ownable {
     using PercentageMath for uint256;
 
     struct Deposits {
@@ -79,10 +87,10 @@ contract AaveWrapper is Ownable {
     //----------------------------//
 
     /**
-     * @dev Only admin can add new supply assets and their oracles
+     * @dev Only owner can add new assets that the contract will support for staking
      * @param _asset will be address of the asset
      * @param _priceOracle will the chainlink asset price oracle
-     * for fetching asset current price
+     * @return event AddAsset(_asset: 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2, _priceOracle: 0xAc559F25B1619171CbC396a50854A3240b6A4e99)
      */
     function addDepositAsset(
         address _asset,
@@ -164,6 +172,7 @@ contract AaveWrapper is Ownable {
     /**
      * @dev only owner can change the borrow ratio
      * @param ratio percentage in 1000 bips i.e 100 == 10% of 1000
+     * @return event BorrowRatioChanged(ratio = 200)
      */
     function changeBorrowRatio(uint256 ratio) public onlyOwner {
         require(ratio != borrowRatio, Errors.BORROW_NOT_CHANGED);
