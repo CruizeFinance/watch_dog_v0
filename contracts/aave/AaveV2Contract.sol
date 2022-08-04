@@ -26,10 +26,9 @@ contract AaveWrapper is Ownable {
     //----------------------------//
     //        State Variable      //
     //----------------------------//
-    mapping(address => mapping(address => Deposits)) public deposits;
     mapping(address => address) public depositAssets;
 
-    uint256 public BorrowRatio = 200; // 20% of 1000
+    uint256 public borrowRatio = 200; // 20% of 1000
     uint256 private constant USD_DECIMALS = 8;
     uint256 private constant ETH_DECIMALS = 18;
 
@@ -106,9 +105,6 @@ contract AaveWrapper is Ownable {
 
         int256 assetPrice = getLatestPrice(depositAssets[_asset]);
 
-        deposits[msg.sender][_asset].amount = _amount;
-        deposits[msg.sender][_asset].price = uint256(assetPrice);
-
         if (msg.value > 0) {
             WETHGATEWAY.depositETH{value: msg.value}(
                 address(POOL),
@@ -140,7 +136,7 @@ contract AaveWrapper is Ownable {
         uint256 availableBorrowAmountIn6Decimals = availableBorrowAmountIn18Decimals /
                 1e12;
         uint256 borrowAmount = (availableBorrowAmountIn6Decimals *
-            BorrowRatio) / 1000;
+            borrowRatio) / 1000;
         POOL.borrow(address(BORROW_ASSET), borrowAmount, 2, 0, address(this));
     }
 
@@ -170,8 +166,8 @@ contract AaveWrapper is Ownable {
      * @param ratio percentage in 1000 bips i.e 100 == 10% of 1000
      */
     function changeBorrowRatio(uint256 ratio) public onlyOwner {
-        require(ratio != BorrowRatio, Errors.BORROW_NOT_CHANGED);
-        BorrowRatio = ratio;
+        require(ratio != borrowRatio, Errors.BORROW_NOT_CHANGED);
+        borrowRatio = ratio;
         emit BorrowRatioChanged(ratio);
     }
 }
