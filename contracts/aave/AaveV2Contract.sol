@@ -9,6 +9,7 @@ import "../libraries/PercentageMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 /**
  * @author CRUIZE.
@@ -18,18 +19,8 @@ import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
  * 2 - A 20% loan is borrowed in USDC.
  * 3 - The borrowed USDC is deposited into our USDC pool.
  */
-contract AaveV2Wrapper is Ownable {
+contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
     using PercentageMath for uint256;
-
-    struct Deposits {
-        uint256 amount;
-        uint256 price;
-    }
-
-    struct Assets {
-        address asset;
-        address priceOracle;
-    }
 
     //----------------------------//
     //        State Variable      //
@@ -105,7 +96,7 @@ contract AaveV2Wrapper is Ownable {
      * @param _asset will be asset name like ETH or BTC
      * @param _amount will be the deposited amount
      */
-    function deposit( address _asset,uint256 _amount) public payable {
+    function deposit( address _asset,uint256 _amount) public nonReentrant payable {
         require(
             depositAssets[_asset] != address(0),
             Errors.ASSET_NOT_ALLOWED
@@ -132,7 +123,7 @@ contract AaveV2Wrapper is Ownable {
      * @dev Cruize will borrow on behalf of user
      * @param _asset will be asset name like ETH or BTC
      */
-    function borrow(address _asset) public {
+    function borrow(address _asset) public nonReentrant {
         (, , uint256 availableBorrowsETH, , , ) = POOL.getUserAccountData(
             address(this)
         );
@@ -151,7 +142,7 @@ contract AaveV2Wrapper is Ownable {
     /**
      * @dev Cruize pool will repay the debt amount
      */
-    function repay() public {
+    function repay() public nonReentrant {
         BORROW_ASSET.approve(address(POOL), type(uint256).max);
         POOL.repay(address(BORROW_ASSET), type(uint256).max, 2, address(this));
     }
@@ -160,7 +151,7 @@ contract AaveV2Wrapper is Ownable {
      * @dev Criuze will withdraw collateral amount
      * @param _asset will be asset name like ETH or BTC
      */
-    function withdraw(address _asset) public {
+    function withdraw(address _asset) public nonReentrant {
         (, uint256 debt, , , , ) = POOL.getUserAccountData(address(this));
         POOL.withdraw(
             _asset,
