@@ -7,8 +7,9 @@
     "test": "test"
   },
   "scripts": {
-    "build": "hardhat compile",
+    "build": "hardhat compile --verbose",
     "test": "hardhat test --logs",
+    "clean": "hardhat clean",
     "build:watch": "hardhat watch compilation",
     "test:watch": "hardhat watch test"
   },
