@@ -1,25 +1,23 @@
-// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.10;
-
 import "hardhat/console.sol";
-import "../libraries/Errors.sol";
-import "../interfaces/IPoolV2.sol";
-import "../interfaces/IWETHGateway.sol";
-import "../libraries/PercentageMath.sol";
+import "../../libraries/Errors.sol";
+import "../../interfaces/IPoolV3.sol";
+import "../../interfaces/IWETHGateway.sol";
+import "../../libraries/PercentageMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 /**
  * @author CRUIZE.
  * @title Cruize AaveV2Wrapper.
- * @notice Aave version 2 contract integration to borrow a 20% loan against the user's deposited asset.
+ * @notice Aave version 3 contract integration to borrow a 20% loan against the user's deposited asset.
  * 1 - User's deposited asset from the asset pool is deposited into Aave.
  * 2 - A 20% loan is borrowed in USDC.
  * 3 - The borrowed USDC is deposited into our USDC pool.
  */
-contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
+contract AaveV3Wrapper is Ownable, ReentrancyGuard {
     using PercentageMath for uint256;
 
     //----------------------------//
@@ -31,14 +29,14 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
     uint256 private constant USD_DECIMALS = 8;
     uint256 private constant ETH_DECIMALS = 18;
 
-    IPoolV2 public constant POOL =
-        IPoolV2(0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9);
+    IPoolV3 public constant POOL =
+        IPoolV3(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
 
     IWETHGateway public constant WETHGATEWAY =
-        IWETHGateway(0xcc9a0B7c43DC2a5F023Bb9b738E45B0Ef6B06E04);
+        IWETHGateway(0xC09e69E79106861dF5d289dA88349f10e2dc6b5C);
 
     IERC20 public constant BORROW_ASSET =
-        IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // USDC
+        IERC20(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8); // USDC
 
     //----------------------------//
     //          Events            //
@@ -68,7 +66,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(_asset);
         (, price, , , ) = priceFeed.latestRoundData();
     }
-  
+
     function nomalize(uint256 amount) public view returns (uint256) {
         return amount * 10**(ETH_DECIMALS - USD_DECIMALS);
     }
@@ -77,12 +75,16 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
     //     Mutation Functions     //
     //----------------------------//
 
-
+    /**
+     * @dev Only owner can add new assets that the contract will support for staking
+     * @param _asset will be address of the asset
+     * @param _priceOracle will the chainlink asset price oracle
+     * event AddAsset(_asset: 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2, _priceOracle: 0xAc559F25B1619171CbC396a50854A3240b6A4e99)
+     */
     function addDepositAsset(
         address _asset,
         address _priceOracle
     ) public onlyOwner isValid( _asset) {
-        
         depositAssets[_asset] = _priceOracle;
         emit AddAsset(_asset,_priceOracle);
     }
@@ -92,7 +94,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
      * @param _asset will be asset name like ETH or BTC
      * @param _amount will be the deposited amount
      */
-    function deposit( address _asset,uint256 _amount) public nonReentrant payable {
+    function depositETH( address _asset,uint256 _amount) public nonReentrant payable {
         require(
             depositAssets[_asset] != address(0),
             Errors.ASSET_NOT_ALLOWED
@@ -109,10 +111,9 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
         } else {
             require(_amount > 0, Errors.ZERO_AMOUNT);
             IERC20 supplyAsset = IERC20(_asset);
-            //wrong this 
             supplyAsset.transferFrom(msg.sender, address(this), _amount);
             supplyAsset.approve(address(POOL), _amount);
-            POOL.deposit(address(supplyAsset), _amount, address(this), 0);
+            POOL.supply(address(supplyAsset), _amount, address(this), 0);
         }
     }
 
@@ -120,7 +121,6 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
      * @dev Cruize will borrow on behalf of user
      * @param _asset will be asset name like ETH or BTC
      */
-
     function borrow(address _asset) public nonReentrant {
         (, , uint256 availableBorrowsETH, , , ) = POOL.getUserAccountData(
             address(this)
@@ -134,7 +134,6 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
                 1e12;
         uint256 borrowAmount = (availableBorrowAmountIn6Decimals *
             borrowRatio) / 1000;
-           
         POOL.borrow(address(BORROW_ASSET), borrowAmount, 2, 0, address(this));
     }
 
@@ -143,7 +142,6 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
      */
     function repay() public nonReentrant {
         BORROW_ASSET.approve(address(POOL), type(uint256).max);
-     
         POOL.repay(address(BORROW_ASSET), type(uint256).max, 2, address(this));
     }
 
@@ -152,7 +150,6 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
      * @param _asset will be asset name like ETH or BTC
      */
     function withdraw(address _asset) public nonReentrant {
-  
         (, uint256 debt, , , , ) = POOL.getUserAccountData(address(this));
         POOL.withdraw(
             _asset,
@@ -161,7 +158,11 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
         );
     }
 
-
+    /**
+     * @dev only owner can change the borrow ratio
+     * @param ratio percentage in 1000 bips i.e 100 == 10% of 1000
+     * event BorrowRatioChanged(ratio = 200)
+     */
     function changeBorrowRatio(uint256 ratio) public onlyOwner {
         require(ratio != borrowRatio, Errors.BORROW_NOT_CHANGED);
         borrowRatio = ratio;
