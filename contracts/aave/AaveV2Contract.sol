@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.10;
 
 import "hardhat/console.sol";
 import "../libraries/Errors.sol";
@@ -68,7 +68,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(_asset);
         (, price, , , ) = priceFeed.latestRoundData();
     }
-
+  
     function nomalize(uint256 amount) public view returns (uint256) {
         return amount * 10**(ETH_DECIMALS - USD_DECIMALS);
     }
@@ -77,16 +77,12 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
     //     Mutation Functions     //
     //----------------------------//
 
-    /**
-     * @dev Only owner can add new assets that the contract will support for staking
-     * @param _asset will be address of the asset
-     * @param _priceOracle will the chainlink asset price oracle
-     * @return event AddAsset(_asset: 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2, _priceOracle: 0xAc559F25B1619171CbC396a50854A3240b6A4e99)
-     */
+
     function addDepositAsset(
         address _asset,
         address _priceOracle
     ) public onlyOwner isValid( _asset) {
+        
         depositAssets[_asset] = _priceOracle;
         emit AddAsset(_asset,_priceOracle);
     }
@@ -113,6 +109,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
         } else {
             require(_amount > 0, Errors.ZERO_AMOUNT);
             IERC20 supplyAsset = IERC20(_asset);
+            //wrong this 
             supplyAsset.transferFrom(msg.sender, address(this), _amount);
             supplyAsset.approve(address(POOL), _amount);
             POOL.deposit(address(supplyAsset), _amount, address(this), 0);
@@ -123,6 +120,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
      * @dev Cruize will borrow on behalf of user
      * @param _asset will be asset name like ETH or BTC
      */
+
     function borrow(address _asset) public nonReentrant {
         (, , uint256 availableBorrowsETH, , , ) = POOL.getUserAccountData(
             address(this)
@@ -136,6 +134,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
                 1e12;
         uint256 borrowAmount = (availableBorrowAmountIn6Decimals *
             borrowRatio) / 1000;
+           
         POOL.borrow(address(BORROW_ASSET), borrowAmount, 2, 0, address(this));
     }
 
@@ -144,6 +143,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
      */
     function repay() public nonReentrant {
         BORROW_ASSET.approve(address(POOL), type(uint256).max);
+     
         POOL.repay(address(BORROW_ASSET), type(uint256).max, 2, address(this));
     }
 
@@ -152,6 +152,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
      * @param _asset will be asset name like ETH or BTC
      */
     function withdraw(address _asset) public nonReentrant {
+  
         (, uint256 debt, , , , ) = POOL.getUserAccountData(address(this));
         POOL.withdraw(
             _asset,
@@ -160,11 +161,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
         );
     }
 
-    /**
-     * @dev only owner can change the borrow ratio
-     * @param ratio percentage in 1000 bips i.e 100 == 10% of 1000
-     * @return event BorrowRatioChanged(ratio = 200)
-     */
+
     function changeBorrowRatio(uint256 ratio) public onlyOwner {
         require(ratio != borrowRatio, Errors.BORROW_NOT_CHANGED);
         borrowRatio = ratio;
