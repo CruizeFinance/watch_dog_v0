@@ -69,6 +69,10 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuardUpgradeable {
         (, price, , , ) = priceFeed.latestRoundData();
     }
   
+    /**
+     * @dev conversion of decimals to handle amount
+     * @param amount asset amount
+     */
     function nomalize(uint256 amount) public view returns (uint256) {
         return amount * 10**(ETH_DECIMALS - USD_DECIMALS);
     }
