@@ -10,7 +10,8 @@
     "build": "hardhat compile",
     "test": "hardhat test --logs",
     "build:watch": "hardhat watch compilation",
-    "test:watch": "hardhat watch test"
+    "test:watch": "hardhat watch test",
+    "deploy:network": "hardhat deploy --network"
   },
   "author": "Prithviraj Murthy",
   "license": "ISC",
