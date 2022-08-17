@@ -27,7 +27,7 @@ describe("Aave Integration V2", function () {
     usdcAccount = await Impersonate(usdcHolder);
 
 
-    const AaveWrapper = await ethers.getContractFactory("AaveWrapper", usdcAccount);
+    const AaveWrapper = await ethers.getContractFactory("AaveV2Wrapper", usdcAccount);
 
 
 

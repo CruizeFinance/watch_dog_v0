@@ -43,15 +43,6 @@ contract AaveV3Wrapper is Ownable, ReentrancyGuard {
     event BorrowRatioChanged(uint256 indexed ratio);
 
     //----------------------------//
-    //          Modifiers         //
-    //----------------------------//
-
-    modifier isValid(address _asset) {
-        require(depositAssets[_asset] == address(0));
-        _;
-    }
-
-    //----------------------------//
     //       View Functions       //
     //----------------------------//
 
@@ -76,8 +67,8 @@ contract AaveV3Wrapper is Ownable, ReentrancyGuard {
     function addDepositAsset(
         address asset,
         address priceOracle
-    ) public onlyOwner isValid( asset) {
-        
+    ) public onlyOwner {
+        require(depositAssets[asset] == address(0));
         depositAssets[asset] = priceOracle;
         emit AddAsset(asset,priceOracle);
     }

@@ -116,8 +116,8 @@ const config: HardhatUserConfig = {
         mnemonic: process.env.MNEMONIC || DEFAULT_MNEMONIC
       },
       forking:{
-
-        url:`https://mainnet.infura.io/v3/${process.env.INFURA_KEY}`
+        // for v2, use the mainnet url
+        url:`https://arb1.arbitrum.io/rpc`
 
       }
     },

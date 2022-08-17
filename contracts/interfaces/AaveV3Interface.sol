@@ -2,11 +2,11 @@
 pragma solidity ^0.8.10;
 
 /**
- * @title AaveV2Wrapper
+ * @title AaveV3Wrapper
  * @author Cruize
  * @notice Defines the basic interface for the aave v2 integration contract
  **/
-interface ICruizeWrapperV2 {
+interface ICruizeWrapperV3 {
 
     /**
      * @dev Users will deposit their assets in pool
