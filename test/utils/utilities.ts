@@ -16,7 +16,6 @@ export const Impersonate = async(address:string):Promise<SignerWithAddress> =>{
         method: "hardhat_impersonateAccount",
         params: [address],
       });
-
       const account = await ethers.getSigner(address)
       return account;
 }
