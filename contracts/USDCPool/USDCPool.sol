@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.4.22 <0.9.0;
+pragma solidity ^0.8.0;
+import "../libraries/Errors.sol";
+import "../interfaces/LiquidityPoolInterfaces.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -37,8 +39,8 @@ contract USDCPool is
         nonReentrant
         returns (uint256)
     {
-        require(USDC_Count > 0, "ZERO_AMOUNT");
-
+        if (USDC_Count <= 0)
+            revert ZeroAmount();
         IERC20 token = IERC20(USDC_Token_Address);
         require(
             token.transferFrom(msg.sender, address(this), USDC_Count)
@@ -57,11 +59,11 @@ contract USDCPool is
         external
         nonReentrant
         returns (uint256)
-    { require(WUSDC_Count > 0,"ZERO_AMOUNT");
-        require(
-            WUSDC_Count <= balanceOf(msg.sender),
-            "NOT_ENOUGH_BALANCE"
-        );
+    {
+        if (WUSDC_Count <= 0)
+            revert ZeroAmount();
+        if (WUSDC_Count > balanceOf(msg.sender))
+            revert NotEnoughBalance();
         _burn(msg.sender, WUSDC_Count);
         IERC20 token = IERC20(USDC_Token_Address);
         token.transfer(msg.sender, WUSDC_Count);
