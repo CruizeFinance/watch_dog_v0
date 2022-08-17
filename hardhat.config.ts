@@ -1,10 +1,6 @@
 import yargs from "yargs";
 import * as dotenv from "dotenv";
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 90d17b7704545b509410884aab6668591f53ea88
 import 'hardhat-deploy';
 import 'hardhat-tracer';
 import 'hardhat-watcher';
@@ -19,14 +15,10 @@ import "@nomiclabs/hardhat-etherscan";
 import { HardhatUserConfig, task } from "hardhat/config";
 import type { HttpNetworkUserConfig } from "hardhat/types";
 
-<<<<<<< HEAD
 
 
 dotenv.config({path:__dirname+'/.env'});
 
-=======
-dotenv.config();
->>>>>>> 90d17b7704545b509410884aab6668591f53ea88
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
