@@ -26,7 +26,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
     //        State Variable      //
     //----------------------------//
     mapping(address => address) public depositAssets;
-
+    address public admin;
     uint256 public borrowRatio = 200; // 20% of 1000
     uint256 private constant USD_DECIMALS = 8;
     uint256 private constant ETH_DECIMALS = 18;
@@ -47,7 +47,14 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
     event AddAsset(address indexed _asset, address _oracle);
     event BorrowRatioChanged(uint256 indexed ratio);
 
-   
+    constructor() {
+        admin == msg.sender;
+    }
+
+   modifier onlyAdmin() {
+    require(msg.sender == admin);
+    _;
+   }
 
     //----------------------------//
     //       View Functions       //
@@ -74,9 +81,14 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
         address asset,
         address priceOracle
     ) public onlyOwner  {
-         require(depositAssets[asset] == address(0));
+        require(depositAssets[asset] == address(0));
         depositAssets[asset] = priceOracle;
         emit AddAsset(asset,asset);
+    }
+
+    function changeAdmin(address newAdmin) public onlyAdmin {
+        require(newAdmin != address(0), "New Admin cannot be a zero address");
+        admin = newAdmin;
     }
 
     /**
@@ -84,7 +96,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
      * @param asset will be asset name like ETH or BTC
      * @param amount will be the deposited amount
      */
-    function deposit( address asset,uint256 amount) public  onlyOwner nonReentrant payable {
+    function deposit( address asset,uint256 amount) public nonReentrant payable {
         require(
             depositAssets[asset] != address(0),
             Errors.ASSET_NOT_ALLOWED
@@ -110,7 +122,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
      * @param asset will be asset name like ETH or BTC
      */
 
-    function borrow(address asset) public onlyOwner nonReentrant {
+    function borrow(address asset) public onlyAdmin nonReentrant {
         (, , uint256 availableBorrowsETH, , , ) = POOL.getUserAccountData(
             address(this)
         );
@@ -130,7 +142,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
     /**
      * @dev Cruize pool will repay the debt amount
      */
-    function repay(uint256 amount) public onlyOwner  nonReentrant {
+    function repay(uint256 amount) public onlyAdmin  nonReentrant {
         BORROW_ASSET.approve(address(POOL), amount);
      
         POOL.repay(address(BORROW_ASSET), amount, 2, address(this));
@@ -151,7 +163,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
         );
     }
 
-    function changeBorrowRatio(uint256 ratio) public onlyOwner {
+    function changeBorrowRatio(uint256 ratio) public onlyAdmin {
         require(ratio != borrowRatio, Errors.BORROW_NOT_CHANGED);
         borrowRatio = ratio;
         emit BorrowRatioChanged(ratio);

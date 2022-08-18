@@ -29,4 +29,5 @@ interface ILPtoken {
         uint8 decimal_
     ) external;
     
+    function approve(address spender, uint256 amount) external;
 }

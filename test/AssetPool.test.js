@@ -6,7 +6,7 @@ const assert = require("chai").assert;
 //CONSTANT
 const USER_WALLET_ADDRESS = "0xE0E24a32A7e50Ea1c7881c54bfC1934e9b50B520";
 const USDSC_CONTRACT_ADDRESS = "0xb7a4F3E9097C08dA09517b5aB877F7a917224ede";
-const WETH_CONTRACT_ADDRESS = "0xd0A1E359811322d97991E03f863a0C30C2cF029C";
+const WETH_CONTRACT_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 const ERC20_DECIMAL_VALUE = 18;
 //loading contracts ..
@@ -26,7 +26,7 @@ const loadContractAndApprove = async (
   const token = await contractFactory.attach(contractAddress);
   await token.approve(foraddress, ethers.utils.parseEther(approvalamount));
 };
-describe("TESTING FOR ETH (NATIVE ETH)", function() {
+describe.only("TESTING FOR ETH (NATIVE ETH)", function() {
   let signer;
   let user1;
   let assetPoolContract;
@@ -38,7 +38,10 @@ describe("TESTING FOR ETH (NATIVE ETH)", function() {
       "AssetPoolUpgradeable",
       signer
     );
-    await assetPoolContract.initialize(ERC20.address);
+    const aaveV2 = await loadAndDeployContract("AaveV2Wrapper", signer);
+    await aaveV2.addDepositAsset(WETH_CONTRACT_ADDRESS ,'0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419');
+    await aaveV2.transferOwnership(assetPoolContract.address);
+    await assetPoolContract.initialize(ERC20.address, aaveV2.address);
     await loadContractAndApprove(
       "CRTokenUpgradeable",
       USDSC_CONTRACT_ADDRESS,
@@ -67,7 +70,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function() {
     const CRETHTokenOwner = await CRETHcontract.owner();
     assert.equal(CRETHTokenOwner, assetPoolContract.address);
   });
-  it.only("Revert, if token name is an empty string", async () => {
+  it("Revert, if token name is an empty string", async () => {
     await expect(
       assetPoolContract.createToken(
         "",
@@ -78,7 +81,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function() {
     ).to.be.revertedWith("EMPTY_NAME");
   });
 
-  it.only("Revert, if token symbol is an empty string", async () => {
+  it("Revert, if token symbol is an empty string", async () => {
     await expect(
       assetPoolContract.createToken(
         "CR Token",
@@ -89,7 +92,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function() {
     ).to.be.revertedWith("EMPTY_SYMBOL");
   });
 
-  it.only("Revert, if amount != msg.value", async () => {
+  it("Revert, if amount != msg.value", async () => {
     await expect(
       assetPoolContract.depositAsset(
         ethers.utils.parseEther("1"),
@@ -99,7 +102,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function() {
     ).to.be.revertedWith("NOT_MATCHED");
   });
 
-  it.only("Revert, if reserve address is not exist", async () => {
+  it("Revert, if reserve address is not exist", async () => {
     await expect(
       assetPoolContract.depositAsset(
         ethers.utils.parseEther("1"),
@@ -109,7 +112,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function() {
     ).to.be.revertedWith("NOT_ALLOWED");
   });
 
-  it.only("Revert, if reserve address is a zero address", async () => {
+  it("Revert, if reserve address is a zero address", async () => {
     await expect(
       assetPoolContract.depositAsset(
         ethers.utils.parseEther("1"),
@@ -190,7 +193,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function() {
   });
 
   //WITHDRAW WETH...
-  it.only("Withdraw USDC", async () => {
+  it("Withdraw USDC", async () => {
     await expect(
       assetPoolContract.withdrawAsset(1000000, USDSC_CONTRACT_ADDRESS)
     ).not.reverted;

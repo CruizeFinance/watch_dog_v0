@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 import "./proxy/Proxy.sol";
 import "../interfaces/LiquidityPoolInterfaces.sol";
+import "../interfaces/AaveV2Interface.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -18,7 +19,7 @@ contract AssetPoolUpgradeable is
     // depositToken => crToken
     mapping(address => address) public lpTokens;
     // WETH address must be change while using different eth network.
-    address private WETH = 0xd0A1E359811322d97991E03f863a0C30C2cF029C;
+    address private WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     event WithdrawEvent(address indexed account, uint256 amount);
     event DepositEvent(address indexed account, uint256 amount);
     event CreateToken(
@@ -28,6 +29,8 @@ contract AssetPoolUpgradeable is
         uint8 decimal
     );
 
+    ICruizeWrapperV2 internal AAVEV2;
+
     /*    ************* PROXY CODE START ****************  */
     address private crContract;
 
@@ -36,8 +39,9 @@ contract AssetPoolUpgradeable is
      * @param     crContract_       Address -  ERC20Upgradeable Contract.
      */
 
-    function initialize(address crContract_) external initializer {
+    function initialize(address crContract_, address wrapperContract_) external initializer {
         crContract = crContract_;
+        AAVEV2 = ICruizeWrapperV2(wrapperContract_);
         __Ownable_init();
         __ReentrancyGuard_init();
     }
@@ -54,6 +58,7 @@ contract AssetPoolUpgradeable is
         string memory name,
         string memory symbol,
         address tokenAddress,
+        address tokenOracle,
         uint8 decimal
     ) external onlyOwner nonReentrant {
         require(
@@ -63,6 +68,7 @@ contract AssetPoolUpgradeable is
         ILPtoken token = ILPtoken(createClone(crContract));
         token.initialize(name, symbol, decimal);
         lpTokens[tokenAddress] = address(token);
+        AAVEV2.addDepositAsset(tokenAddress, tokenOracle);
         emit CreateToken(address(token), name, symbol, decimal);
     }
 
@@ -106,6 +112,8 @@ contract AssetPoolUpgradeable is
             );
         }
         ILPtoken(lpTokens[reserve]).mint(msg.sender, amount);
+        ILPtoken(reserve).approve(address(AAVEV2), amount);
+        AAVEV2.deposit{value: 0}(reserve, amount);
         emit DepositEvent(msg.sender, amount);
     }
 

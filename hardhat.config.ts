@@ -61,7 +61,7 @@ const config: HardhatUserConfig = {
     deployer: 0
   },
   paths: {
-    tests: "./test/src",
+    tests: "./test",
     cache: "./cache",
     deploy: "./src/deploy",
     sources: "./contracts",
@@ -117,7 +117,7 @@ const config: HardhatUserConfig = {
       },
       forking:{
         // for v2, use the mainnet url
-        url:`https://arb1.arbitrum.io/rpc`
+        url:`https://mainnet.infura.io/v3/${process.env.INFURA_KEY}`
 
       }
     },

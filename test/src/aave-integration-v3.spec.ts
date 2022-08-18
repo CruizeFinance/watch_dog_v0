@@ -7,7 +7,7 @@ import hre, { ethers } from "hardhat";
 import { Impersonate } from "../utils/utilities";
 
 
-describe.only("Aave Integration V3", function () {
+describe("Aave Integration V3", function () {
 
   let signer: SignerWithAddress;
   let wrapper: Contract;
