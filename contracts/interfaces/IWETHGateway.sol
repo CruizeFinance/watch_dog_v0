@@ -2,6 +2,8 @@
 pragma solidity ^0.8.10;
 
 interface IWETHGateway {
+    function getWETHAddress() external view returns (address);
+
     function depositETH(
         address pool,
         address onBehalfOf,

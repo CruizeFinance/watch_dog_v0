@@ -1,7 +1,7 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { Contract, BigNumber } from "ethers";
-import { formatUnits, parseEther, parseUnits } from "ethers/lib/utils";
+import {  parseEther } from "ethers/lib/utils";
 import hre, { ethers } from "hardhat";
 
 import { Impersonate } from "../utils/utilities";

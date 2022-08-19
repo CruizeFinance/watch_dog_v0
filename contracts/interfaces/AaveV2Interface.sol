@@ -23,5 +23,5 @@ interface ICruizeWrapperV2 {
      * @dev Users will withdraw their assets from aave
      * accepts asset address to withdraw
      */
-    function withdraw(address) external;
+    function withdraw(address,uint256,address) external;
 }

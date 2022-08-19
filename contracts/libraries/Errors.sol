@@ -13,4 +13,6 @@ library Errors {
   string public constant ZERO_AMOUNT = "2"; // 'Amount cannot be zero'
   string public constant BORROWING_ERROR = "3"; // 'Error in borrowing'
   string public constant BORROW_NOT_CHANGED = "4"; // 'Borrow ratio should not be the previous one'
+  string public constant ZERO_ADDRESS = "5"; // Address cannot be zero
+  string public constant ALREADY_EXIST = "6"; // Asset already exist
 }

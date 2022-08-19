@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import "hardhat/console.sol";
 import "../../libraries/Errors.sol";
+import "../../libraries/DataTypes.sol";
 import "../../interfaces/IPoolV2.sol";
 import "../../interfaces/IWETHGateway.sol";
 import "../../libraries/PercentageMath.sol";
@@ -51,10 +51,10 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
         admin == msg.sender;
     }
 
-   modifier onlyAdmin() {
-    require(msg.sender == admin);
-    _;
-   }
+    modifier onlyAdmin() {
+        require(msg.sender == admin);
+        _;
+    }
 
     //----------------------------//
     //       View Functions       //
@@ -64,11 +64,15 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
      * @dev fetch the latest price of the asset from oracle
      * @param _asset address for which we need price
      */
-    function getLatestPrice(address _asset) internal view returns (int256 price) {
+    function getLatestPrice(address _asset)
+        internal
+        view
+        returns (int256 price)
+    {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(_asset);
         (, price, , , ) = priceFeed.latestRoundData();
     }
-  
+
     function nomalize(uint256 _amount) internal pure returns (uint256) {
         return _amount * 10**(ETH_DECIMALS - USD_DECIMALS);
     }
@@ -77,13 +81,15 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
     //     Mutation Functions     //
     //----------------------------//
 
-    function addDepositAsset(
-        address asset,
-        address priceOracle
-    ) public onlyOwner  {
-        require(depositAssets[asset] == address(0));
+    function addDepositAsset(address asset, address priceOracle)
+        public
+        onlyOwner
+    {
+        require(priceOracle != address(0),Errors.ZERO_ADDRESS);
+        require(asset != address(0),Errors.ZERO_ADDRESS);
+        require(depositAssets[asset] == address(0),Errors.ALREADY_EXIST);
         depositAssets[asset] = priceOracle;
-        emit AddAsset(asset,asset);
+        emit AddAsset(asset, asset);
     }
 
     function changeAdmin(address newAdmin) public onlyAdmin {
@@ -96,11 +102,12 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
      * @param asset will be asset name like ETH or BTC
      * @param amount will be the deposited amount
      */
-    function deposit( address asset,uint256 amount) public nonReentrant payable {
-        require(
-            depositAssets[asset] != address(0),
-            Errors.ASSET_NOT_ALLOWED
-        );
+    function deposit(address asset, uint256 amount)
+        public
+        payable
+        nonReentrant
+    {
+        require(depositAssets[asset] != address(0), Errors.ASSET_NOT_ALLOWED);
         if (msg.value > 0) {
             WETHGATEWAY.depositETH{value: msg.value}(
                 address(POOL),
@@ -110,7 +117,7 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
         } else {
             require(amount > 0, Errors.ZERO_AMOUNT);
             IERC20 supplyAsset = IERC20(asset);
-            //wrong this 
+            //wrong this
             supplyAsset.transferFrom(msg.sender, address(this), amount);
             supplyAsset.approve(address(POOL), amount);
             POOL.deposit(address(supplyAsset), amount, address(this), 0);
@@ -135,32 +142,34 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
                 1e12;
         uint256 borrowAmount = (availableBorrowAmountIn6Decimals *
             borrowRatio) / 1000;
-           
+
         POOL.borrow(address(BORROW_ASSET), borrowAmount, 2, 0, address(this));
     }
 
     /**
      * @dev Cruize pool will repay the debt amount
      */
-    function repay(uint256 amount) public onlyAdmin  nonReentrant {
+    function repay(uint256 amount) public onlyAdmin nonReentrant {
         BORROW_ASSET.approve(address(POOL), amount);
-     
         POOL.repay(address(BORROW_ASSET), amount, 2, address(this));
     }
-
 
     /**
      * @dev Criuze will withdraw collateral amount
      * @param asset will be asset name like ETH or BTC
      */
-    function withdraw(address asset,uint256 amount) public onlyOwner nonReentrant {
-  
-        (, uint256 debt, , , , ) = POOL.getUserAccountData(address(this));
-        POOL.withdraw(
-            asset,
-            amount,
-            address(this)
-        );
+    function withdraw(
+        address asset,
+        uint256 amount,
+        address to
+    ) public onlyOwner nonReentrant {
+        DataTypes.ReserveData memory reserve = POOL.getReserveData(asset);
+        IERC20(reserve.aTokenAddress).approve(address(WETHGATEWAY), amount);
+        if (asset == WETHGATEWAY.getWETHAddress()) {
+            WETHGATEWAY.withdrawETH(address(POOL), amount, to);
+        } else {
+            POOL.withdraw(asset, amount, to);
+        }
     }
 
     function changeBorrowRatio(uint256 ratio) public onlyAdmin {
@@ -169,3 +178,4 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
         emit BorrowRatioChanged(ratio);
     }
 }
+
