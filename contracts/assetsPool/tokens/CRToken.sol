@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
+import "../../libraries/Errors.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 contract CRTokenUpgradeable is
@@ -38,12 +39,12 @@ contract CRTokenUpgradeable is
         string memory symbol_,
         uint8 decimal_
     ) external initializer {
-        require(bytes(name_).length > 0, "EMPTY_NAME");
-        require(
-            bytes(symbol_).length > 0,
-            "EMPTY_SYMBOL"
-        );
-        require(decimal_ > 0, "ZERO_DECIMAL");
+        if (0 >= bytes(name_).length)
+            revert EmptyName();
+        if (0 >= bytes(symbol_).length)
+            revert EmptySymbol();
+        if (0 >= decimal_)
+            revert ZeroDecimal();
         __ERC20_init(name_, symbol_);
         __Ownable_init();
         _decimal = decimal_;

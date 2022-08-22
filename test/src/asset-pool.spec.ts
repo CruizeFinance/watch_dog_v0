@@ -102,7 +102,7 @@ describe.only("TESTING FOR ETH (NATIVE ETH)", function () {
         NULL_ADDRESS,
         ERC20_DECIMAL_VALUE
       )
-    ).to.be.revertedWith("5");
+    ).to.be.revertedWith("ZeroAddress");
 
     await expect(
       assetPoolContract.createToken(
@@ -112,7 +112,7 @@ describe.only("TESTING FOR ETH (NATIVE ETH)", function () {
         "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
         ERC20_DECIMAL_VALUE
       )
-    ).to.be.revertedWith("5");
+    ).to.be.revertedWith("ZeroAddress");
   });
 
   it.only("Revert, if token name is an empty string", async () => {
@@ -124,7 +124,7 @@ describe.only("TESTING FOR ETH (NATIVE ETH)", function () {
         ETH_USD_ORACLE,
         ERC20_DECIMAL_VALUE
       )
-    ).to.be.revertedWith("EMPTY_NAME");
+    ).to.be.revertedWith("EmptyName");
   });
 
   it.only("Revert, if token symbol is an empty string", async () => {
@@ -136,7 +136,7 @@ describe.only("TESTING FOR ETH (NATIVE ETH)", function () {
         ETH_USD_ORACLE,
         ERC20_DECIMAL_VALUE
       )
-    ).to.be.revertedWith("EMPTY_SYMBOL");
+    ).to.be.revertedWith("EmptySymbol");
   });
 
   it.only("Create CRETH", async () => {
@@ -168,7 +168,7 @@ describe.only("TESTING FOR ETH (NATIVE ETH)", function () {
         ETH_USD_ORACLE, // ETH-USD oracle address
         ERC20_DECIMAL_VALUE
       )
-    ).to.be.revertedWith("ALREADY_EXIST");
+    ).to.be.revertedWith("AssetAlreadyExists");
   });
 
   it.only("Revert, if amount is zero", async () => {
@@ -176,7 +176,7 @@ describe.only("TESTING FOR ETH (NATIVE ETH)", function () {
       assetPoolContract.depositAsset("0", WETH_CONTRACT_ADDRESS, {
         value: ethers.utils.parseEther("0"),
       })
-    ).to.be.revertedWith("ZERO_AMOUNT");
+    ).to.be.revertedWith("ZeroAmount");
   });
 
   it.only("Revert, if reserve address is zero address", async () => {
@@ -184,7 +184,7 @@ describe.only("TESTING FOR ETH (NATIVE ETH)", function () {
       assetPoolContract.depositAsset(parseEther("1"), NULL_ADDRESS, {
         value: ethers.utils.parseEther("1"),
       })
-    ).to.be.revertedWith("ZERO_ADDRESS");
+    ).to.be.revertedWith("ZeroAddress");
   });
 
   it.only("Revert, if amount != msg.value", async () => {
@@ -194,7 +194,7 @@ describe.only("TESTING FOR ETH (NATIVE ETH)", function () {
         WETH_CONTRACT_ADDRESS,
         { value: ethers.utils.parseEther("0") }
       )
-    ).to.be.revertedWith("NOT_MATCHED");
+    ).to.be.revertedWith("UnmatchedEthAndAssetAmount");
   });
 
   it.only("Revert, if reserve address is not exist", async () => {
@@ -204,7 +204,7 @@ describe.only("TESTING FOR ETH (NATIVE ETH)", function () {
         USER_WALLET_ADDRESS,
         { value: ethers.utils.parseEther("0") }
       )
-    ).to.be.revertedWith("NOT_ALLOWED");
+    ).to.be.revertedWith("AssetNotAllowed");
   });
 
   it.only("Successfully Deposit ETH", async () => {
@@ -225,7 +225,7 @@ describe.only("TESTING FOR ETH (NATIVE ETH)", function () {
         ethers.utils.parseEther("20"),
         WETH_CONTRACT_ADDRESS
       )
-    ).to.be.revertedWith("NOT_ENOUGH_BALANCE");
+    ).to.be.revertedWith("NotEnoughBalance");
   });
 
   it.only("Revert, If user withdraw zero amount", async () => {
@@ -234,7 +234,7 @@ describe.only("TESTING FOR ETH (NATIVE ETH)", function () {
         ethers.utils.parseEther("0"),
         USER_WALLET_ADDRESS
       )
-    ).to.be.revertedWith("ZERO_AMOUNT");
+    ).to.be.revertedWith("ZeroAmount");
   });
 
   it.only("Revert, If token address is zero address", async () => {
@@ -243,7 +243,7 @@ describe.only("TESTING FOR ETH (NATIVE ETH)", function () {
         ethers.utils.parseEther("1"),
         NULL_ADDRESS
       )
-    ).to.be.revertedWith("ZERO_ADDRESS");
+    ).to.be.revertedWith("ZeroAddress");
   });
 
   it.only("Withdraw ETH", async () => {

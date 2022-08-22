@@ -25,7 +25,7 @@ contract AaveV3Wrapper is Ownable, ReentrancyGuard {
     //        State Variable      //
     //----------------------------//
     mapping(address => address) public depositAssets;
-
+    address public admin;
     uint256 internal borrowRatio = 200; // 20% of 1000
     uint256 private constant USD_DECIMALS = 8;
     uint256 private constant ETH_DECIMALS = 18;
@@ -39,8 +39,19 @@ contract AaveV3Wrapper is Ownable, ReentrancyGuard {
     IERC20 internal constant BORROW_ASSET =
         IERC20(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8); // USDC
 
-     event AddAsset(address indexed _asset, address _oracle);
+    event AddAsset(address indexed _asset, address _oracle);
     event BorrowRatioChanged(uint256 indexed ratio);
+
+    constructor() {
+        admin = msg.sender;
+    }
+
+    modifier onlyAdmin() {
+        if (msg.sender != admin)
+            revert OnlyAdminAllowed();
+        _;
+    }
+
 
     //----------------------------//
     //       View Functions       //
@@ -68,9 +79,18 @@ contract AaveV3Wrapper is Ownable, ReentrancyGuard {
         address asset,
         address priceOracle
     ) public onlyOwner {
-        require(depositAssets[asset] == address(0));
+        if (priceOracle == address(0) || asset == address(0))
+            revert ZeroAddress();
+        if (depositAssets[asset] != address(0))
+            revert AssetAlreadyExists();
         depositAssets[asset] = priceOracle;
         emit AddAsset(asset,priceOracle);
+    }
+
+    function changeAdmin(address newAdmin) public onlyAdmin {
+        if (newAdmin == address(0))
+            revert ZeroAddress();
+        admin = newAdmin;
     }
 
     /**
@@ -79,13 +99,8 @@ contract AaveV3Wrapper is Ownable, ReentrancyGuard {
      * @param amount will be the deposited amount
      */
     function deposit( address asset,uint256 amount) public  onlyOwner nonReentrant payable {
-        require(
-            depositAssets[asset] != address(0),
-            Errors.ASSET_NOT_ALLOWED
-        );
-
-
-
+        if (depositAssets[asset] == address(0))
+            revert AssetNotAllowed();
         if (msg.value > 0) {
             WETHGATEWAY.depositETH{value: msg.value}(
                 address(POOL),
@@ -93,7 +108,8 @@ contract AaveV3Wrapper is Ownable, ReentrancyGuard {
                 0
             );
         } else {
-            require(amount > 0, Errors.ZERO_AMOUNT);
+            if (amount <= 0)
+                revert ZeroAmount();
             IERC20 supplyAsset = IERC20(asset);
             //wrong this 
             supplyAsset.transferFrom(msg.sender, address(this), amount);
@@ -107,7 +123,7 @@ contract AaveV3Wrapper is Ownable, ReentrancyGuard {
      * @param asset will be asset name like ETH or BTC
      */
 
-    function borrow(address asset) public onlyOwner nonReentrant {
+    function borrow(address asset) public onlyAdmin nonReentrant {
         (, , uint256 availableBorrowsETH, , , ) = POOL.getUserAccountData(
             address(this)
         );
@@ -127,9 +143,8 @@ contract AaveV3Wrapper is Ownable, ReentrancyGuard {
     /**
      * @dev Cruize pool will repay the debt amount
      */
-    function repay(uint256 amount) public onlyOwner nonReentrant {
+    function repay(uint256 amount) public onlyAdmin nonReentrant {
         BORROW_ASSET.approve(address(POOL), amount);
-     
         POOL.repay(address(BORROW_ASSET), amount, 2, address(this));
     }
 
@@ -138,7 +153,6 @@ contract AaveV3Wrapper is Ownable, ReentrancyGuard {
      * @param asset will be asset name like ETH or BTC
      */
     function withdraw(address asset) public onlyOwner nonReentrant {
-  
         (, uint256 debt, , , , ) = POOL.getUserAccountData(address(this));
         POOL.withdraw(
             asset,
@@ -149,7 +163,8 @@ contract AaveV3Wrapper is Ownable, ReentrancyGuard {
 
 
     function changeBorrowRatio(uint256 ratio) public onlyOwner {
-        require(ratio != borrowRatio, Errors.BORROW_NOT_CHANGED);
+        if (ratio == borrowRatio)
+            revert SameBorrowRatio();
         borrowRatio = ratio;
         emit BorrowRatioChanged(ratio);
     }

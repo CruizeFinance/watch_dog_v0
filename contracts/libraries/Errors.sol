@@ -2,17 +2,21 @@
 
 pragma solidity ^0.8.10;
 
-
-/**
- * @title Errors library
- * @author Cruize
- * @notice Defines the error messages emitted by the different contracts of the Cruize protocol
- */
-library Errors {
-  string public constant ASSET_NOT_ALLOWED = "1"; // 'Asset not allowed'
-  string public constant ZERO_AMOUNT = "2"; // 'Amount cannot be zero'
-  string public constant BORROWING_ERROR = "3"; // 'Error in borrowing'
-  string public constant BORROW_NOT_CHANGED = "4"; // 'Borrow ratio should not be the previous one'
-  string public constant ZERO_ADDRESS = "5"; // Address cannot be zero
-  string public constant ALREADY_EXIST = "6"; // Asset already exist
-}
+/** 
+  * Error events
+  */
+  error IncorrectAddress();
+  error OnlyAdminAllowed();
+  error OnlyOwnerAllowed();
+  error ZeroAddress();
+  error AssetNotAllowed();
+  error AssetAlreadyExists();
+  error ZeroAmount();
+  error SameBorrowRatio();
+  error EmptyName();
+  error EmptySymbol();
+  error ZeroDecimal();
+  error TransferFailed();
+  error NotEnoughBalance();
+  error ZeroPriceFloor();
+  error UnmatchedEthAndAssetAmount();

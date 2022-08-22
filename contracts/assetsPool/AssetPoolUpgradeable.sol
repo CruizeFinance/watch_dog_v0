@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 import "./proxy/Proxy.sol";
 import "../interfaces/AaveV2Interface.sol";
 import "../interfaces/LiquidityPoolInterfaces.sol";
+import "../libraries/Errors.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -101,7 +102,8 @@ contract AssetPoolUpgradeable is
         address tokenOracle,
         uint8 decimal
     ) external onlyOwner nonReentrant {
-        require(lpTokens[tokenAddress] == address(0), "ALREADY_EXIST");
+        if (lpTokens[tokenAddress] != address(0))
+            revert AssetAlreadyExists();
         ILPtoken token = ILPtoken(createClone(crContract));
         token.initialize(name, symbol, decimal);
         lpTokens[tokenAddress] = address(token);
@@ -121,13 +123,17 @@ contract AssetPoolUpgradeable is
         public
         payable
         nonReentrant
-    {
-        require(amount > 0, "ZERO_AMOUNT");
-        require(reserve != address(0), "ZERO_ADDRESS");
-        require(lpTokens[reserve] != address(0), "NOT_ALLOWED");
+    {   
+        if (amount <= 0)
+            revert ZeroAmount();
+        if (reserve == address(0))
+            revert ZeroAddress();
+        if (lpTokens[reserve] == address(0))
+            revert AssetNotAllowed();
         if (reserve == wETH || msg.value > 0) {
             //native token -  ETH .
-            require(msg.value >= amount, "NOT_MATCHED");
+            if (msg.value < amount)
+                revert UnmatchedEthAndAssetAmount();
             ILPtoken(wETH).deposit{value: amount}();
             //refund dust eth, if any .
             if (msg.value > amount)
@@ -135,11 +141,9 @@ contract AssetPoolUpgradeable is
         } else {
             //wrapped token ex - WETH .
             ILPtoken depositToken = ILPtoken(reserve);
-            require(lpTokens[reserve] != address(0), "NOT_ALLOWED");
-            require(
-                depositToken.transferFrom(msg.sender, address(this), amount),
-                "TRANSFER_FAILED"
-            );
+            if (lpTokens[reserve] == address(0))
+                revert AssetNotAllowed();
+            require(depositToken.transferFrom(msg.sender, address(this), amount));
         }
         ILPtoken(lpTokens[reserve]).mint(msg.sender, amount);
         ILPtoken(reserve).approve(address(aaveV2), amount);
@@ -159,14 +163,15 @@ contract AssetPoolUpgradeable is
         external
         nonReentrant
     {
-        require(amount > 0, "ZERO_AMOUNT");
-        require(token != address(0), "ZERO_ADDRESS");
-        require(lpTokens[token] != address(0), "NOT_ALLOWED");
+        if (amount <= 0)
+            revert ZeroAmount();
+        if (token == address(0))
+            revert ZeroAddress();
+        if (lpTokens[token] == address(0))
+            revert AssetNotAllowed();
         ILPtoken assetToken = ILPtoken(lpTokens[token]);
-        require(
-            amount <= assetToken.balanceOf(msg.sender),
-            "NOT_ENOUGH_BALANCE"
-        );
+        if (amount > assetToken.balanceOf(msg.sender))
+            revert NotEnoughBalance();
         // Burn user crTokens
         assetToken.burn(msg.sender, amount);
         // Withdraw from Aave using Cruize wrapper contract directly into the user wallet.
@@ -180,7 +185,8 @@ contract AssetPoolUpgradeable is
      * @param _price ETH price will be in USD.
      */
     function setEthPrice(uint256 _price) public onlyOwner {
-        require(priceFloor != 0);
+        if (priceFloor <= 0)
+            revert ZeroPriceFloor();
         ethPrice = _price;
         priceFloor = ethPrice.mul(priceFloor).div(BIPS);
     }

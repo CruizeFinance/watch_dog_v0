@@ -52,7 +52,8 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
     }
 
     modifier onlyAdmin() {
-        require(msg.sender == admin);
+        if (msg.sender != admin)
+            revert OnlyAdminAllowed();
         _;
     }
 
@@ -85,15 +86,17 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
         public
         onlyOwner
     {
-        require(priceOracle != address(0),Errors.ZERO_ADDRESS);
-        require(asset != address(0),Errors.ZERO_ADDRESS);
-        require(depositAssets[asset] == address(0),Errors.ALREADY_EXIST);
+        if (priceOracle == address(0) || asset == address(0))
+            revert ZeroAddress();
+        if (depositAssets[asset] != address(0))
+            revert AssetAlreadyExists();
         depositAssets[asset] = priceOracle;
         emit AddAsset(asset, asset);
     }
 
     function changeAdmin(address newAdmin) public onlyAdmin {
-        require(newAdmin != address(0), "New Admin cannot be a zero address");
+        if (newAdmin == address(0))
+            revert ZeroAddress();
         admin = newAdmin;
     }
 
@@ -107,7 +110,8 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
         payable
         nonReentrant
     {
-        require(depositAssets[asset] != address(0), Errors.ASSET_NOT_ALLOWED);
+        if (depositAssets[asset] == address(0))
+            revert AssetNotAllowed();
         if (msg.value > 0) {
             WETHGATEWAY.depositETH{value: msg.value}(
                 address(POOL),
@@ -115,9 +119,9 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
                 0
             );
         } else {
-            require(amount > 0, Errors.ZERO_AMOUNT);
+            if (amount <= 0)
+                revert ZeroAmount();
             IERC20 supplyAsset = IERC20(asset);
-            //wrong this
             supplyAsset.transferFrom(msg.sender, address(this), amount);
             supplyAsset.approve(address(POOL), amount);
             POOL.deposit(address(supplyAsset), amount, address(this), 0);
@@ -173,7 +177,8 @@ contract AaveV2Wrapper is Ownable, ReentrancyGuard {
     }
 
     function changeBorrowRatio(uint256 ratio) public onlyAdmin {
-        require(ratio != borrowRatio, Errors.BORROW_NOT_CHANGED);
+        if (ratio == borrowRatio)
+            revert SameBorrowRatio();
         borrowRatio = ratio;
         emit BorrowRatioChanged(ratio);
     }
