@@ -11,11 +11,7 @@
 #       - run: npm install
 #       - run: npm run test
 name: cruizefinance
-
-on:
-  push:
-    branches: [ "aave-integration" ]
-
+on: [push]
 jobs:
   build:
 
