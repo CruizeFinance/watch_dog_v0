@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
 import {IPoolAddressesProvider} from "./IPoolAddressesProvider.sol";
@@ -389,7 +389,7 @@ interface IPoolV2 {
    * @param asset The address of the underlying asset of the reserve
    * @return The state of the reserve
    **/
-  function getReserveData(address asset) external view returns (DataTypes.ReserveData memory);
+  function getReserveData(address asset) external view returns (DataTypes.ReserveDataV2 memory);
 
   function finalizeTransfer(
     address asset,

@@ -1,6 +1,6 @@
 
 
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.0;
 
 /** 
   * Error events
@@ -19,4 +19,5 @@ pragma solidity ^0.8.10;
   error TransferFailed();
   error NotEnoughBalance();
   error ZeroPriceFloor();
+  error ValuesNotMatched();
   error UnmatchedEthAndAssetAmount();

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.0;
 
 import "./IPoolAddressesProvider.sol";
-import {DataTypes} from "@aave/core-v3/contracts/protocol/libraries/types/DataTypes.sol";
+import {DataTypes} from "../libraries/DataTypes.sol";
 
 /**
  * @title IPool
@@ -633,7 +633,7 @@ interface IPoolV3 {
     function getReserveData(address asset)
         external
         view
-        returns (DataTypes.ReserveData memory);
+        returns (DataTypes.ReserveDataV3 memory);
 
     /**
      * @notice Validates and finalizes an aToken transfer

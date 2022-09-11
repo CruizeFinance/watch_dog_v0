@@ -58,7 +58,6 @@ contract USDCPool is
     function withdraw(uint256 WUSDC_Count)
         external
         nonReentrant
-        returns (uint256)
     {
         if (WUSDC_Count <= 0)
             revert ZeroAmount();
@@ -66,8 +65,7 @@ contract USDCPool is
             revert NotEnoughBalance();
         _burn(msg.sender, WUSDC_Count);
         IERC20 token = IERC20(USDC_Token_Address);
-        token.transfer(msg.sender, WUSDC_Count);
+        require(token.transfer(msg.sender, WUSDC_Count));
         emit WithdrawEvent(msg.sender, WUSDC_Count);
-        return WUSDC_Count;
     }
 }
