@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.0;
 
 
 
@@ -29,5 +29,5 @@ interface ILPtoken {
         uint8 decimal_
     ) external;
     
-    function approve(address spender, uint256 amount) external;
+    function approve(address spender, uint256 amount) external returns (bool);
 }

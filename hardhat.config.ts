@@ -16,7 +16,7 @@ import type { HttpNetworkUserConfig } from "hardhat/types";
 
 
 
-dotenv.config({path:__dirname+'/.env'});
+dotenv.config({path:__dirname+'/test.env'});
 
 
 // This is a sample Hardhat task. To learn how to create your own go to
@@ -79,7 +79,7 @@ const config: HardhatUserConfig = {
         }
       },
       {
-        version: "0.8.10",
+        version: "0.8.4",
         settings: {
           optimizer: {
             runs: 200,
@@ -99,12 +99,6 @@ const config: HardhatUserConfig = {
         }
       }
     ],
-    overrides:{
-      "@aave/core-v3/contracts/protocol/libraries/types/DataTypes.sol":{
-        version: "0.8.10",
-        settings: { }
-      }
-    }
   },
   defaultNetwork: "hardhat",
   networks: {
