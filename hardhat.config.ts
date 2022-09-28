@@ -57,7 +57,7 @@ if (process.env.PRIVATE_KEY) {
 
 const config: HardhatUserConfig = {
   namedAccounts: {
-    deployer: 0
+    deployer: 1
   },
   paths: {
     tests: "./test",
@@ -110,8 +110,8 @@ const config: HardhatUserConfig = {
         mnemonic: process.env.MNEMONIC || DEFAULT_MNEMONIC
       },
       forking:{
-        url:`https://mainnet.infura.io/v3/${process.env.INFURA_KEY}`
-
+        // url:`https://mainnet.infura.io/v3/${process.env.INFURA_KEY}`,
+      url: `https://goerli.infura.io/v3/${process.env.INFURA_KEY}`,
       }
     },
     mainnet: {
@@ -130,7 +130,12 @@ const config: HardhatUserConfig = {
     kovan: {
       ...sharedNetworkConfig,
       url: `https://kovan.infura.io/v3/${process.env.INFURA_KEY}`,
+    },
+    goerli: {
+      ...sharedNetworkConfig,
+      url: `https://goerli.infura.io/v3/${process.env.INFURA_KEY}`,
     }
+
   },
   mocha: {
     timeout: 8000000,
@@ -151,9 +156,7 @@ const config: HardhatUserConfig = {
         params: {
           logs: true, noCompile: false,
           testFiles: [
-
             "./test/src/aave-integration-v3.spec.ts",
-
           ]
         }
       }],
@@ -170,7 +173,6 @@ const config: HardhatUserConfig = {
             noCompile: true,
             testFiles: [
               "./test/src/aave-integration-v2.spec.ts",
-
               "./test/src/aave-integration-v3.spec.ts",
 
             ]

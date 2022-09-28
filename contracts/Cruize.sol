@@ -6,9 +6,15 @@ import "./base/AaveV2Wrapper.sol";
 /**
  * @author CRUIZE.
  * @title Cruize AssetPool.
+ * @notice Cruize is the main smart contract of Cruize Protocol
+ * which will be resposible for managing users deposits in aave
+ * protocol and receive aave debt and interest bearing tokens
+ * in turn for lending and borrowing.
  */
 contract Cruize is Proxy, AaveV2Wrapper {
-    receive() external payable {}
+    receive() external payable {
+        
+    }
 
     //----------------------------//
     //     Mutation Functions     //
@@ -16,29 +22,31 @@ contract Cruize is Proxy, AaveV2Wrapper {
 
     /**
      * @notice initialize will initialize the crContract.
-     * @param _cruize_wallet address -  Cruize Wallet address.
-     * @param _crContract address -  ERC20Upgradeable Contract.
+     * @param dydxWalletAddr Cruize Wallet address.
+     * @param crImplentation CrToken tokens implementation for proxy
      */
 
-    function initialize(address _cruize_wallet, address _crContract)
-        external
+    function initialize(address dydxWalletAddr, address crImplentation)
+        public
         initializer
     {
         __Ownable_init();
         __ReentrancyGuard_init();
-        require(_crContract != address(0));
-        require(_cruize_wallet != address(0));
-        crContract = _crContract;
-        cruize_wallet = _cruize_wallet;
+        require(crImplentation != address(0));
+        require(dydxWalletAddr != address(0));
+        toTreasury = 1000; // 10% = 1000 
+        crContract = crImplentation;
+        dydxWallet = dydxWalletAddr;
     }
 
     /**
-     * @notice createToken  will Clone CRTokenUpgradeable (ERC20 token).
-     * @param name name of   ERC20Upgradeable Contract.
-     * @param symbol symbol of   ERC20Upgradeable Contract.
-     * @param decimal decimal value of ERC20Upgradeable Contract.
-     * @dev incase of ETH  , we will take token address of WETH becuase
-     * ETH is a native token of Ethereum so we don't have token address for ETH.
+     * @notice createToken will deploy CrToken proxies
+     * @param name name of CrToken.
+     * @param symbol symbol of CrToken.
+     * @param reserve underlaying asset
+     * @param tokenOracle underlaying asset oracle
+     * @param decimal decimal value of CrToken.
+     * @param fee fee tier of uniswap v3 pool.
      */
 
     function createToken(
@@ -46,64 +54,102 @@ contract Cruize is Proxy, AaveV2Wrapper {
         string memory symbol,
         address reserve,
         address tokenOracle,
-        uint8 decimal
+        uint8 decimal,
+        uint24 fee
     ) external onlyOwner nonReentrant {
-        if (lpTokens[reserve] != address(0)) revert AssetAlreadyExists();
+        if (crTokens[reserve] != address(0)) revert AssetAlreadyExists();
         if (tokenOracle == address(0) || reserve == address(0))
             revert ZeroAddress();
 
-        ILPtoken crToken = ILPtoken(createClone(crContract));
-        lpTokens[reserve] = address(crToken);
+        ICRToken crToken = ICRToken(createClone(crContract));
+        crTokens[reserve] = address(crToken);
         oracles[reserve] = tokenOracle;
+        fees[reserve][WETH] = fee;
+        fees[WETH][reserve] = fee;
+        // slither-disable-next-line reentrancy-events
         crToken.initialize(name, symbol, decimal);
-        emit CreateToken(address(crToken), name, symbol, decimal);
+        emit CreateTokenEvent(reserve,address(crToken), name, symbol, decimal);
     }
 
     /**
-     * @notice  deposit will deposit user's asset to aave lending pool
+     * @notice deposit will deposit user's asset to aave lending pool
      * and take loan of about 25% of collateral amount.
+     * if you are depositing erc20 token i.e WBTC/WETH then don't send 
+     * ETH in msg.value
      * @param amount number of token to be deposit.
      * @param reserve token address to deposit.
      */
+
     function deposit(uint256 amount, address reserve)
         external
         payable
         nonReentrant
     {
-        uint256 borrowAmount = depositToAave(reserve, amount);
-        borrow(reserve, borrowAmount); // borrow from aave and transfer them to cruize wallet
+        depositToAave(reserve, amount);
+        borrow(reserve, amount); 
     }
 
     /**
      * @dev Cruize pool will repay the debt amount
+     * @param amount to repay to aave lending pool
      */
-    function repay(uint256 amount) public nonReentrant {
-        if (borrowAsset.allowance(address(this), address(pool)) < amount)
-            require(borrowAsset.approve(address(pool), type(uint256).max));
-        pool.repay(address(borrowAsset), amount, 2, address(this));
+    function repay(uint256 amount) public nonReentrant onlyOwner {
+        require(TrustedBorrowAsset.transferFrom(owner(), address(this), amount));
+        if (TrustedBorrowAsset.allowance(address(this), address(TrustedAavePool)) < amount)
+            require(TrustedBorrowAsset.approve(address(TrustedAavePool), type(uint256).max));
+        // slither-disable-next-line unused-return
+        TrustedAavePool.repay(USDC, amount, VARIABLE_RATE, address(this));
     }
+
+    function repayTest(uint256 amount) internal {
+        require(TrustedBorrowAsset.approve(address(TrustedAavePool), type(uint256).max));
+        (,uint256 totalDebtETH,,,,) = TrustedAavePool.getUserAccountData(address(this));
+        if(totalDebtETH > 0){
+        // slither-disable-next-line unused-return
+        TrustedAavePool.repay(USDC, amount, VARIABLE_RATE, address(this));
+        }
+    }
+
 
     /**
      * @notice withdrawAsset  will withdraw user's asset from CRUIZE assetPool.
-     * @param amount number of token to be deposit.
-     * @param token token address to withdraw.
-     * @dev incase of ETH  , we will take token address of WETH becuase
-     * ETH is a native token of Ethereum so we don't have token address for ETH.
+     * @param amount number of token to be withdraw.
+     * @param token asset address to withdraw.
      */
 
     function withdraw(uint256 amount, address token) external nonReentrant {
         // Withdraw from Aave using Cruize wrapper contract directly into the user wallet.
         withdrawFromAave(token, amount, msg.sender);
-        emit WithdrawEvent(token, msg.sender, amount);
     }
 
     /**
-     * @dev This function will be used for setting price floor
-     * @param _floor Price floor will be set in % of 10000 bips
-     * i.e 1000 = 10%
+     * @notice withdrawAsset  will withdraw user's asset from CRUIZE assetPool.
+     * @param amount number of token to be withdraw.
+     * @param token asset address to withdraw.
      */
-    function setPriceFloor(uint256 _floor) public onlyOwner {
-        require(_floor <= BASE);
-        priceFloor = _floor;
+    function withdrawTest(uint256 amount, address token) external nonReentrant {
+        repayTest(type(uint256).max);
+        // Withdraw from Aave using Cruize wrapper contract directly into the user wallet.
+        withdrawFromAaveTest(token, amount, msg.sender);
+    }
+
+    /** 
+    * @notice Pull estimated fee
+    * @param asset asset address
+    * @param _fee amount of fee in eth
+    */
+    function payFee(address asset , uint256 _fee) external onlyOwner {
+        if(asset == WETH){
+            // solhint-disable-next-line mark-callable-contracts
+            IWETH(asset).withdraw(_fee);
+        }
+        if(asset != ETH && asset != WETH){
+            swapToWETH(asset, _fee);
+            // solhint-disable-next-line mark-callable-contracts
+            IWETH(WETH).withdraw(_fee);
+        }
+        //slither-disable-next-line arbitrary-send
+        (bool success, ) = dydxWallet.call{value:_fee}("");
+        if (!success) revert TransferFailed();
     }
 }
