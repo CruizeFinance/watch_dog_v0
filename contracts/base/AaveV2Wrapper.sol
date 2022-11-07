@@ -390,55 +390,6 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /**
-     * @dev withdraw assets from AAVE and Treasury
-     * @param asset asset address
-     * @param amount asset amount
-     * @param to receiving address
-     */
-    function withdrawFromAaveTest(
-        address asset,
-        uint256 amount,
-        address to
-    ) internal {
-        if (amount == 0) revert ZeroAmount();
-        if (asset == address(0)) revert ZeroAddress();
-        if (crTokens[asset] == address(0)) revert AssetNotAllowed();
-        ICRToken crToken = ICRToken(crTokens[asset]);
-        crToken.burn(to, amount);
-
-        bool isPriceFloor = false;
-        uint256 priceFloor = priceFloorOf(asset);
-        uint256 assetPrice = uint256(priceOf(asset));
-        uint256 amountInUSDC = assetPrice.mul(amount);
-        uint256 computedPriceFloor = priceFloor.mul(amount);
-
-        if (amountInUSDC <= computedPriceFloor) {
-            uint256 decimals = asset != ETH
-                ? ICRToken(asset).decimals()
-                : ETH_DECIMALS;
-            uint256 _amountInUsdc = amount
-                .mul(priceFloor)
-                .mul(pow(USDC_DECIMALS))
-                .div(pow(decimals.add(USD_DECIMALS)));
-            ICRToken(USDC_TEST).mint(to, _amountInUsdc);
-            // asset = USDC_TEST;
-            to = dydxWallet;
-            isPriceFloor = true;
-        }
-        uint256 fromTreasury = amount.mul(toTreasury).div(BASE);
-        uint256 fromAave = amount.sub(fromTreasury);
-
-        if (asset == ETH) {
-            withdrawETH(fromAave, to);
-        } else {
-            withdrawERC20(asset, fromAave, to);
-        }
-
-        withdrawFromTreasury(asset, amount);
-        emit WithdrawEvent(asset, amount, isPriceFloor);
-    }
-
-    /**
      * @dev Withdraw asset from treasury according to the user shares in the
      * treasury.
      * @param asset asset address
