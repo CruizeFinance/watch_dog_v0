@@ -54,7 +54,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     );
     ERC20 = await Master.deploy();
 
-    const AssetPool = await ethers.getContractFactory("Cruize", signer);
+    const AssetPool = await ethers.getContractFactory("CruizeTestnet", signer);
     cruize = await AssetPool.deploy();
 
     await cruize.initialize(signer.address, ERC20.address);
@@ -435,7 +435,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     await expect(
       cruize
         .connect(user0)
-        .withdrawTest(
+        .withdraw(
           ethers.utils.parseEther("1"),
           Constants.ETH_ADDRESS,
         )
@@ -444,7 +444,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     await expect(
       cruize
         .connect(user0)
-        .withdrawTest(
+        .withdraw(
           ethers.utils.parseEther("1"),
           Constants.ETH_ADDRESS,
         )
@@ -455,7 +455,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     await expect(
       cruize
         .connect(signer)
-        .withdrawTest(
+        .withdraw(
           ethers.utils.parseEther("1"),
           Constants.ETH_ADDRESS,
         )
@@ -464,7 +464,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     await expect(
       cruize
         .connect(signer)
-        .withdrawTest(
+        .withdraw(
           ethers.utils.parseEther("1"),
           Constants.ETH_ADDRESS,
         )
@@ -488,7 +488,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     await expect(
       cruize
         .connect(user0)
-        .withdrawTest(
+        .withdraw(
           parseUnits("1", BigNumber.from(8)),
           Constants.WBTC,
         )
@@ -500,7 +500,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
       await expect(
         cruize
           .connect(signer)
-          .withdrawTest(
+          .withdraw(
             parseUnits("0.1", BigNumber.from(8)),
             Constants.WBTC,
           )
@@ -528,7 +528,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     await expect(
       cruize
       .connect(user0)
-      .withdrawTest(
+      .withdraw(
         ethers.utils.parseEther("1"),
         Constants.WETH_CONTRACT_ADDRESS,
       ))
@@ -537,7 +537,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
       await expect(
         cruize
         .connect(signer)
-        .withdrawTest(
+        .withdraw(
           ethers.utils.parseEther("1"),
           Constants.WETH_CONTRACT_ADDRESS,
         ))
@@ -549,7 +549,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     await expect(
       cruize
         .connect(signer)
-        .withdrawTest(
+        .withdraw(
           ethers.utils.parseEther("50"),
           Constants.WETH_CONTRACT_ADDRESS,
 
@@ -561,7 +561,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     await expect(
       cruize
         .connect(weth_holder)
-        .withdrawTest(
+        .withdraw(
           ethers.utils.parseEther("0"),
           Constants.WETH_CONTRACT_ADDRESS,
         )
@@ -572,7 +572,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     await expect(
       cruize
         .connect(weth_holder)
-        .withdrawTest(
+        .withdraw(
           ethers.utils.parseEther("1"),
           Constants.NULL_ADDRESS,
         )
