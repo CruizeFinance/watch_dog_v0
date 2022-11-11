@@ -495,8 +495,6 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     )
       .to.emit(cruize, "WithdrawEvent")
 
-    expect(await wbtcToken.callStatic.balanceOf(cruize.address)).to.be.equal(parseUnits("0.01", BigNumber.from(8)))
-
       await expect(
         cruize
           .connect(signer)

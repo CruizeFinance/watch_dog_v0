@@ -100,6 +100,7 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     error SameBorrowRatio();
     error NotEnoughBalance();
     error TransferFailed();
+    error InvalidDeposit();
     //----------------------------//
     //          Events            //
     //----------------------------//
@@ -258,7 +259,7 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (asset == ETH && msg.value > 0) {
             depositETH(amountToAave);
         } else {
-            require(msg.value == 0);
+            if(msg.value != 0) revert InvalidDeposit();
             IERC20 token = IERC20(asset);
             // Pull all the given amount from the user address
             require(token.transferFrom(msg.sender, address(this), amount));
@@ -283,7 +284,7 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             address(this)
         );
         // transfer loan to cruize wallet
-        require(TrustedBorrowAsset.transfer(dydxWallet, borrowAmount));
+        if(!TrustedBorrowAsset.transfer(dydxWallet, borrowAmount)) revert TransferFailed();
     }
 
     /**
@@ -363,7 +364,6 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 assetPrice = uint256(priceOf(asset));
         uint256 amountInUSDC = assetPrice.mul(amount);
         uint256 computedPriceFloor = priceFloor.mul(amount);
-
         if (amountInUSDC <= computedPriceFloor) {
             uint256 decimals = asset != ETH
                 ? ICRToken(asset).decimals()
@@ -376,16 +376,18 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             to = dydxWallet;
             isPriceFloor = true;
         }
-        uint256 fromTreasury = amount.mul(toTreasury).div(BASE);
-        uint256 fromAave = amount.sub(fromTreasury);
+        else {
+            uint256 fromTreasury = amount.mul(toTreasury).div(BASE);
+            uint256 fromAave = amount.sub(fromTreasury);
 
-        if (asset == ETH) {
-            withdrawETH(fromAave, to);
-        } else {
-            withdrawERC20(asset, fromAave, to);
+            if (asset == ETH) {
+                withdrawETH(fromAave, to);
+            } else {
+                withdrawERC20(asset, fromAave, to);
+            }
+            withdrawFromTreasury(asset, amount);
         }
 
-        withdrawFromTreasury(asset, amount);
         emit WithdrawEvent(asset, amount, isPriceFloor);
     }
 
@@ -401,10 +403,9 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         pools[asset] = pools[asset].sub(amount);
         if (asset == ETH) {
             //slither-disable-next-line arbitrary-send
-            (bool success, ) = msg.sender.call{value: shareAmount}("");
-            if (!success) revert TransferFailed();
+            if (!payable(msg.sender).send(shareAmount)) revert TransferFailed();
         } else {
-            require(IERC20(asset).transfer(msg.sender, shareAmount));
+            if(!IERC20(asset).transfer(msg.sender, shareAmount)) revert TransferFailed() ;
         }
     }
 
