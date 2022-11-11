@@ -33,6 +33,8 @@ contract Proxy {
       result := create(0, clone, 0x37)
     }
   }
+
+  // slither-disable-next-line dead-code
   function isClone(address target, address query) internal view returns (bool result) {
     bytes20 targetBytes = bytes20(target);
     assembly {

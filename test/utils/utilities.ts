@@ -19,3 +19,10 @@ export const Impersonate = async(address:string):Promise<SignerWithAddress> =>{
       const account = await ethers.getSigner(address)
       return account;
 }
+
+export const setBalanceZero = async(address:string): Promise<void> => {
+    await hre.network.provider.send("hardhat_setBalance", [
+        address,
+        "0x0",
+      ]);
+}
