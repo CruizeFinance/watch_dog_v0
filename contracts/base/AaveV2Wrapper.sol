@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
 import "../interfaces/IUSDC.sol";
 import "../interfaces/IOracle.sol";
 import "../interfaces/IPoolV2.sol";
 import "../interfaces/IWETHGateway.sol";
 import "../interfaces/ICRToken.sol";
+import "../interfaces/IAaveOracle.sol";
 import "../interfaces/IWETH.sol";
 import "../interfaces/ISwapRouter.sol";
 import "../interfaces/AggregatorV3Interface.sol";
@@ -41,6 +41,7 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     uint256 public toTreasury; // 10% of given amount
     uint256 public accumulatedFee;
     uint256 public borrowRatio = 1500; // 15% of 10000
+    uint256 public totalDeposit;
 
     //----------------------------//
     //    Constant Variable       //
@@ -61,12 +62,13 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     address public constant USDC_TEST =
         0x8D49213C586Dc6D38dC219DC404713336d88d1af;
     address public constant ORACLE = 0xC27a285E0d0C0738bC9FD505052e6c2b6177F873;
+    address public constant AAVE_ORACLE =
+        0x2cb0d5755436ED904D7D0fbBACc6176286c55667;
 
     //----------------------------//
     //        Mappings            //
     //----------------------------//
 
-    mapping(address => uint256) public totalDeposit;
     // reserveToken => crToken
     mapping(address => address) public crTokens;
     // reserveToken => oracles
@@ -75,8 +77,6 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(address => uint256) public pools;
     // uniswap v3 pool token0 => token1 => fee
     mapping(address => mapping(address => uint24)) public fees;
-    // user-address => asset-address => asset-amount
-    mapping(address => mapping(address => uint256)) public userAaveDeposit;
 
     //----------------------------//
     //        Address             //
@@ -91,6 +91,9 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     // Uniswap v3 router
     ISwapRouter internal Trustedv3router = ISwapRouter(ROUTER);
+
+    // Aave Price Oracle
+    IAaveOracle internal TrustedAaveOracle = IAaveOracle(AAVE_ORACLE);
 
     // Aave WETH gateway to deposit and withdraw ETH
     IWETHGateway internal TrustedWethGateway = IWETHGateway(WETH_GATEWAY_ADDR);
@@ -167,6 +170,15 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      */
     function priceOf(address asset) public view returns (uint256) {
         return uint256(getLatestPrice(oracles[asset]));
+    }
+
+    /**
+     * @dev Return the price of the given asset in ETH
+     * @param asset asset address
+     */
+    function priceInEth(address asset) internal view returns (uint256) {
+        if (asset == ETH) asset = WETH;
+        return TrustedAaveOracle.getAssetPrice(asset);
     }
 
     function priceFloorOf(address asset) public view returns (uint256) {
@@ -247,8 +259,11 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             ? ICRToken(asset).decimals()
             : ETH_DECIMALS;
         return
-            priceOf(asset).mul(amount).mul(pow(ETH_DECIMALS.sub(decimals))).div(
-                priceOf(ETH)
+            Math.mulDiv(
+                priceInEth(asset),
+                amount,
+                pow(decimals),
+                Math.Rounding.Zero
             );
     }
 
@@ -261,8 +276,11 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             ? ICRToken(asset).decimals()
             : ETH_DECIMALS;
         return
-            amount.mul(priceOf(ETH)).div(priceOf(asset)).div(
-                pow(ETH_DECIMALS.sub(decimals))
+            Math.mulDiv(
+                amount,
+                pow(decimals),
+                priceInEth(asset),
+                Math.Rounding.Zero
             );
     }
 
@@ -281,8 +299,7 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 amountToAave = amount.sub(amountToTreasury);
         // adding user amount in the given pool for later share calculation
         pools[asset] = pools[asset].add(amount);
-        totalDeposit[asset] += toETH(asset, amountToAave);
-        userAaveDeposit[msg.sender][asset] += toETH(asset, amountToAave);
+        totalDeposit += toETH(asset, amountToAave);
 
         if (asset == ETH && msg.value > 0) {
             depositETH(amountToAave);
@@ -290,9 +307,7 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             if (msg.value != 0) revert InvalidDeposit();
             IERC20 token = IERC20(asset);
             // Pull all the given amount from the user address
-            require(
-                token.transferFrom(msg.sender, address(this), amount)
-            );
+            require(token.transferFrom(msg.sender, address(this), amount));
             depositERC20(asset, amountToAave);
         }
         ICRToken(crTokens[asset]).mint(msg.sender, amount);
@@ -411,14 +426,15 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         } else {
             uint256 fromTreasury = amount.mul(toTreasury).div(BASE);
             uint256 fromAave = amount.sub(fromTreasury);
-            fromAave = calculateAPY(asset, toETH(asset, fromAave));
+            withdrawAmount = calculateAPY(asset, toETH(asset, fromAave));
             if (asset == ETH) {
-                withdrawETH(fromAave, to);
+                withdrawETH(withdrawAmount, to);
             } else {
-                withdrawERC20(asset, fromAave, to);
+                withdrawERC20(asset, withdrawAmount, to);
             }
-            withdrawAmount = withdrawFromTreasury(asset, amount);
-            withdrawAmount += fromAave;
+            withdrawAmount += withdrawFromTreasury(asset, amount);
+            // withdrawAmount += fromAave;
+            totalDeposit -= toETH(asset, fromAave);
         }
     }
 
@@ -446,20 +462,16 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     function calculateAPY(address asset, uint256 amount)
         internal
+        view
         returns (uint256 shareAmount)
     {
         (uint256 totalCollateralETH, , , , , ) = TrustedAavePool
             .getUserAccountData(address(this));
-        uint256 totalAPY = totalCollateralETH.sub(totalDeposit[asset]);
-        if (totalAPY == 0) return fromETH(asset, amount);
-        uint256 userTotalDepositAmount = userAaveDeposit[msg.sender][asset];
-        uint256 userShare = userTotalDepositAmount.mul(BASE).div(
-            totalDeposit[asset]
-        );
-        shareAmount = totalAPY.mul(userShare).div(BASE).add(amount);
+        uint256 apy = totalCollateralETH.sub(totalDeposit);
+        if (apy == 0) return fromETH(asset, amount);
+        uint256 userShare = amount.mul(BASE).div(totalDeposit);
+        shareAmount = apy.mul(userShare).div(BASE).add(amount);
         shareAmount = fromETH(asset, shareAmount);
-        totalDeposit[asset] -= amount;
-        userAaveDeposit[msg.sender][asset] -= amount;
     }
 
     modifier isApproved(IERC20 _token) {
