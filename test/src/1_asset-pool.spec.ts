@@ -126,6 +126,10 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
       .approve(cruize.address, constants.MaxUint256);
 
     await wbtcToken
+      .connect(signer)
+      .approve(lendingPool.address, constants.MaxUint256);
+
+    await wbtcToken
       .connect(user0)
       .approve(cruize.address, constants.MaxUint256);
 
@@ -164,13 +168,13 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     await wbtcToken.connect(btc_holder).transfer(user0.address, "50000000000");
   });
 
-  it.only("Throw, if re-intialize the asset pool contract", async () => {
+  it("Throw, if re-intialize the asset pool contract", async () => {
     expect(cruize.initialize(signer.address, ERC20.address)).to.be.revertedWith(
       "Initializable: contract is already initialized"
     );
   });
 
-  it.only("Throw, if asset or oracle addresses are zero addresses", async () => {
+  it("Throw, if asset or oracle addresses are zero addresses", async () => {
     await expect(
       cruize.createToken(
         "Cruize ETH",
@@ -194,7 +198,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     ).to.be.revertedWith("ZeroAddress");
   });
 
-  it.only("Revert, if token name is an empty string", async () => {
+  it("Revert, if token name is an empty string", async () => {
     await expect(
       cruize.createToken(
         "",
@@ -207,7 +211,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     ).to.be.revertedWith("EmptyName");
   });
 
-  it.only("Revert, if token symbol is an empty string", async () => {
+  it("Revert, if token symbol is an empty string", async () => {
     await expect(
       cruize.createToken(
         "CR Token",
@@ -220,7 +224,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     ).to.be.revertedWith("EmptySymbol");
   });
 
-  it.only("Create CRETH", async () => {
+  it("Create CRETH", async () => {
     await expect(
       cruize.createToken(
         "Cruize ETH",
@@ -315,7 +319,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     ).to.be.revertedWith("AssetAlreadyExists");
   });
 
-  it.only("Revert, if amount is zero", async () => {
+  it("Revert, if amount is zero", async () => {
     await expect(
       cruize.deposit("0", Constants.WETH_CONTRACT_ADDRESS, {
         value: ethers.utils.parseEther("0"),
@@ -323,7 +327,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     ).to.be.revertedWith("ZeroAmount");
   });
 
-  it.only("Revert, if reserve address is zero address", async () => {
+  it("Revert, if reserve address is zero address", async () => {
     await expect(
       cruize.deposit(parseEther("1"), Constants.NULL_ADDRESS, {
         value: ethers.utils.parseEther("1"),
@@ -331,7 +335,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     ).to.be.revertedWith("ZeroAddress");
   });
 
-  it.only("Revert, if reserve address is not exist", async () => {
+  it("Revert, if reserve address is not exist", async () => {
     await expect(
       cruize.deposit(
         ethers.utils.parseEther("1"),
@@ -359,11 +363,11 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
       .withArgs(Constants.ETH_ADDRESS, user0.address, parseEther("1"));
   });
 
-  it.only("Successfully Deposit WETH", async () => {
+  it.only("Successfully Deposit WETH by signer", async () => {
     await expect(
       cruize
         .connect(signer)
-        .deposit(parseEther("1"), Constants.WETH_CONTRACT_ADDRESS, {
+        .deposit(parseEther("2"), Constants.WETH_CONTRACT_ADDRESS, {
           value: parseEther("0"),
         })
     )
@@ -371,14 +375,11 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
       .withArgs(
         Constants.WETH_CONTRACT_ADDRESS,
         signer.address,
-        parseEther("1")
+        parseEther("2")
       );
+  });
 
-    increaseTime(864000);
-    console.log(
-      await lendingPool.callStatic.getUserAccountData(cruize.address)
-    );
-
+  it.only("Successfully Deposit WETH by user", async () => {
     await expect(
       cruize
         .connect(user0)
@@ -506,36 +507,23 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     });
   });
 
-  it.only("Withdraw wBTC user0, when price above the price floor", async () => {
-    await crWBTC.connect(user0).approve(cruize.address, constants.MaxUint256);
-    console.log(
-      await lendingPool.callStatic.getUserAccountData(cruize.address)
-    );
-    await expect(
-      cruize
-        .connect(user0)
-        .withdraw(parseUnits("1", BigNumber.from(8)), Constants.WBTC)
-    ).to.emit(cruize, "WithdrawEvent");
-  });
-
-  it.only("Withdraw wBTC signer, when price above the price floor", async () => {
-    await crWBTC.connect(signer).approve(cruize.address, constants.MaxUint256);
-    console.log(
-      await lendingPool.callStatic.getUserAccountData(cruize.address)
-    );
-    await expect(
-      cruize
-        .connect(signer)
-        .withdraw(parseUnits("1", BigNumber.from(8)), Constants.WBTC)
-    ).to.emit(cruize, "WithdrawEvent");
-  });
-
   it("Cruize Balance Before wETH Withdraw", async () => {
     console.table({
       ETH: await ethers.provider.getBalance(cruize.address),
       wETH: await wethToken.callStatic.balanceOf(cruize.address),
       wBTC: await wbtcToken.callStatic.balanceOf(cruize.address),
     });
+  });
+
+  it.only("Withdraw wETH from signer, when price above the price floor", async () => {
+    await crWETH.connect(signer).approve(cruize.address, constants.MaxUint256);
+
+    await expect(
+      cruize
+        .connect(signer)
+        .withdraw(ethers.utils.parseEther("2"), Constants.WETH_CONTRACT_ADDRESS)
+    ).to.emit(cruize, "WithdrawEvent");
+    
   });
 
   it.only("Withdraw wETH from user, when price above the price floor", async () => {
@@ -546,25 +534,29 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
         .connect(user0)
         .withdraw(ethers.utils.parseEther("2"), Constants.WETH_CONTRACT_ADDRESS)
     ).to.emit(cruize, "WithdrawEvent");
-
-    console.log(
-      await lendingPool.callStatic.getUserAccountData(cruize.address)
-    );
   });
 
-  it.only("Withdraw wETH from signer, when price above the price floor", async () => {
-    await crWETH.connect(signer).approve(cruize.address, constants.MaxUint256);
-
+  it.only("Withdraw wBTC signer, when price above the price floor", async () => {
+    await crWBTC.connect(signer).approve(cruize.address, constants.MaxUint256);
+   
     await expect(
       cruize
         .connect(signer)
-        .withdraw(ethers.utils.parseEther("1"), Constants.WETH_CONTRACT_ADDRESS)
+        .withdraw(parseUnits("1", BigNumber.from(8)), Constants.WBTC)
     ).to.emit(cruize, "WithdrawEvent");
-    console.log(
-      await lendingPool.callStatic.getUserAccountData(cruize.address)
-    );
   });
 
+  it.only("Withdraw wBTC user0, when price above the price floor", async () => {
+    await crWBTC.connect(user0).approve(cruize.address, constants.MaxUint256);
+    
+    await expect(
+      cruize
+        .connect(user0)
+        .withdraw(parseUnits("2", BigNumber.from(8)), Constants.WBTC)
+    ).to.emit(cruize, "WithdrawEvent");
+  });
+
+ 
   it("Revert, If user doesn't have enough crTokens", async () => {
     await expect(
       cruize

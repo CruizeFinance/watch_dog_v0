@@ -2,18 +2,19 @@
 pragma solidity ^0.8.0;
 
 import "../interfaces/IUSDC.sol";
+import "../interfaces/IWETH.sol";
 import "../interfaces/IOracle.sol";
 import "../interfaces/IPoolV2.sol";
-import "../interfaces/IWETHGateway.sol";
 import "../interfaces/ICRToken.sol";
+import "../libraries/MathUtils.sol";
+import "../libraries/WadRayMath.sol";
 import "../interfaces/IAaveOracle.sol";
-import "../interfaces/IWETH.sol";
 import "../interfaces/ISwapRouter.sol";
+import "../interfaces/IWETHGateway.sol";
 import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/IUniswapV3SwapCallback.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
@@ -27,7 +28,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
  * 1 - Deposit user asset amount in aave lending pool.
  * 2 - Borrow a {borrowRatio}% loan against the user's deposited asset.
  * 3 - User's deposited 90% amount will be deposited into Aave.
- * 4 - A 25% loan is borrowed in USDC and transferred to the dydx account.
+ * 4 - A 15% loan is borrowed in USDC and transferred to the dydx account.
  */
 contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeMath for uint256;
@@ -41,7 +42,6 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     uint256 public toTreasury; // 10% of given amount
     uint256 public accumulatedFee;
     uint256 public borrowRatio = 1500; // 15% of 10000
-    uint256 public totalDeposit;
 
     //----------------------------//
     //    Constant Variable       //
@@ -51,7 +51,6 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     uint256 public constant USDC_DECIMALS = 6;
     uint256 public constant USD_DECIMALS = 8;
     uint256 public constant ETH_DECIMALS = 18;
-    uint256 public constant AAVE_DEFAULT_LTV = 8000; // 80.00% of 10000
     address public constant ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     address public constant POOL = 0x4bd5643ac6f66a5237E18bfA7d47cF22f1c9F210;
     address public constant WETH_GATEWAY_ADDR =
@@ -77,7 +76,8 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(address => uint256) public pools;
     // uniswap v3 pool token0 => token1 => fee
     mapping(address => mapping(address => uint24)) public fees;
-
+    // asset-address => user-address => deposit timestamp
+    mapping(address => mapping(address => uint40)) public usersDepositTimestamp;
     //----------------------------//
     //        Address             //
     //----------------------------//
@@ -127,6 +127,14 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         string symbol,
         uint8 decimal
     );
+
+    modifier isApproved(IERC20 _token) {
+        if (
+            _token.allowance(address(this), ROUTER) <
+            _token.balanceOf(address(this))
+        ) require(_token.approve(ROUTER, type(uint256).max));
+        _;
+    }
 
     //----------------------------//
     //       View Functions       //
@@ -198,17 +206,14 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         returns (uint256)
     {
         uint256 priceFloor = priceFloorOf(asset);
-        // int256 assetPrice = getLatestPrice(oracles[asset]);
-        uint256 decimals = asset != ETH
-            ? ICRToken(asset).decimals()
-            : ETH_DECIMALS;
-
         uint256 amountInUsd = amount.mul(priceFloor);
-        uint256 amountInUsdcDecimals = toUSDCDecimals(amountInUsd, decimals);
+        uint256 amountInUsdcDecimals = toUSDCDecimals(
+            amountInUsd,
+            decimalsOf(asset)
+        );
         // 0.9 * 0.15 => 0.1350
         // slither-disable-next-line divide-before-multiply
-        uint256 usdcAmount = amountInUsdcDecimals.mul(1350).div(BASE);
-        return usdcAmount;
+        return amountInUsdcDecimals.mul(1350).div(BASE);
     }
 
     /**
@@ -220,6 +225,76 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             asset == ETH
                 ? address(this).balance
                 : IERC20(asset).balanceOf(address(this));
+    }
+
+    /**
+     * @dev This function will return decimals of the give asset
+     * @param asset address of the asset
+     */
+    function decimalsOf(address asset) internal view returns (uint256) {
+        return asset != ETH ? ICRToken(asset).decimals() : ETH_DECIMALS;
+    }
+
+    /**
+     * @dev This function will return the given amount to the given asset decimals
+     * @param asset address of the asset
+     * @param amount amount of the asset
+     * @return converted amount into the given asset decimals
+     */
+    function toETH(address asset, uint256 amount)
+        internal
+        view
+        returns (uint256)
+    {
+        return
+            Math.mulDiv(
+                priceInEth(asset),
+                amount,
+                pow(decimalsOf(asset)),
+                Math.Rounding.Zero
+            );
+    }
+
+    /**
+     * @dev This function will convert amount into the eth decimals
+     * @param asset address of the asset
+     * @param amount amount of the asset
+     * @return converted amount into the eth decimals
+     */
+    function fromETH(address asset, uint256 amount)
+        internal
+        view
+        returns (uint256)
+    {
+        return
+            Math.mulDiv(
+                amount,
+                pow(decimalsOf(asset)),
+                priceInEth(asset),
+                Math.Rounding.Zero
+            );
+    }
+
+    /**
+     * @dev This function will calculate the APY of given asset and amount
+     * @param user address of the user
+     * @param asset address of the asset
+     * @param amount amount of the asset
+     * @return calculate the APY on the given amount
+     */
+    function calculateAPY(
+        address user,
+        address asset,
+        uint256 amount
+    ) public view returns (uint256) {
+        DataTypes.ReserveDataV2 memory reserve = TrustedAavePool.getReserveData(
+            asset
+        );
+        uint256 rate = MathUtils.calculateLinearInterest(
+            reserve.currentLiquidityRate,
+            usersDepositTimestamp[asset][user]
+        );
+        return fromETH(asset,rate.mul(toETH(asset, amount)).div(WadRayMath.RAY));
     }
 
     //-----------------------------//
@@ -250,40 +325,6 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         TrustedAavePool.deposit(asset, amountToAave, address(this), 0);
     }
 
-    function toETH(address asset, uint256 amount)
-        internal
-        view
-        returns (uint256)
-    {
-        uint256 decimals = asset != ETH
-            ? ICRToken(asset).decimals()
-            : ETH_DECIMALS;
-        return
-            Math.mulDiv(
-                priceInEth(asset),
-                amount,
-                pow(decimals),
-                Math.Rounding.Zero
-            );
-    }
-
-    function fromETH(address asset, uint256 amount)
-        internal
-        view
-        returns (uint256)
-    {
-        uint256 decimals = asset != ETH
-            ? ICRToken(asset).decimals()
-            : ETH_DECIMALS;
-        return
-            Math.mulDiv(
-                amount,
-                pow(decimals),
-                priceInEth(asset),
-                Math.Rounding.Zero
-            );
-    }
-
     /**
      * @dev deposit given amount erc20 token asset to the AAVE pool
      * @param asset asset address
@@ -299,7 +340,7 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 amountToAave = amount.sub(amountToTreasury);
         // adding user amount in the given pool for later share calculation
         pools[asset] = pools[asset].add(amount);
-        totalDeposit += toETH(asset, amountToAave);
+        usersDepositTimestamp[asset][msg.sender] = uint40(block.timestamp);
 
         if (asset == ETH && msg.value > 0) {
             depositETH(amountToAave);
@@ -409,7 +450,7 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 priceFloor = priceFloorOf(asset);
         uint256 amountInUSDC = priceOf(asset).mul(amount);
         uint256 computedPriceFloor = priceFloor.mul(amount);
-        if (amountInUSDC <= computedPriceFloor && isPriceFloor) {
+        if (amountInUSDC <= computedPriceFloor) {
             {
                 uint256 decimals = asset != ETH
                     ? ICRToken(asset).decimals()
@@ -426,15 +467,13 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         } else {
             uint256 fromTreasury = amount.mul(toTreasury).div(BASE);
             uint256 fromAave = amount.sub(fromTreasury);
-            withdrawAmount = calculateAPY(asset, toETH(asset, fromAave));
+            withdrawAmount = calculateAPY(msg.sender, asset, fromAave);
             if (asset == ETH) {
                 withdrawETH(withdrawAmount, to);
             } else {
-                withdrawERC20(asset, withdrawAmount, to);
+                withdrawERC20(asset,withdrawAmount, to);
             }
             withdrawAmount += withdrawFromTreasury(asset, amount);
-            // withdrawAmount += fromAave;
-            totalDeposit -= toETH(asset, fromAave);
         }
     }
 
@@ -458,28 +497,6 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             if (!IERC20(asset).transfer(msg.sender, shareAmount))
                 revert TransferFailed();
         }
-    }
-
-    function calculateAPY(address asset, uint256 amount)
-        internal
-        view
-        returns (uint256 shareAmount)
-    {
-        (uint256 totalCollateralETH, , , , , ) = TrustedAavePool
-            .getUserAccountData(address(this));
-        uint256 apy = totalCollateralETH.sub(totalDeposit);
-        if (apy == 0) return fromETH(asset, amount);
-        uint256 userShare = amount.mul(BASE).div(totalDeposit);
-        shareAmount = apy.mul(userShare).div(BASE).add(amount);
-        shareAmount = fromETH(asset, shareAmount);
-    }
-
-    modifier isApproved(IERC20 _token) {
-        if (
-            _token.allowance(address(this), ROUTER) <
-            _token.balanceOf(address(this))
-        ) require(_token.approve(ROUTER, type(uint256).max));
-        _;
     }
 
     /**

@@ -224,5 +224,9 @@ interface IPoolV2 {
    **/
   function getReserveData(address asset) external view returns (DataTypes.ReserveDataV2 memory);
 
+   function getReserveNormalizedIncome(address asset)
+    external
+    view
+    returns (uint256);
 
 }
