@@ -17,6 +17,13 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "hardhat/console.sol";
+
+interface aToken {
+    function UNDERLYING_ASSET_ADDRESS() external returns (address);
+
+    function scaledBalanceOf(address user) external view returns (uint256);
+}
 
 /**
  * @author CRUIZE.
@@ -32,6 +39,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
  */
 contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeMath for uint256;
+    using WadRayMath for uint256;
 
     //----------------------------//
     //        State Variable      //
@@ -39,8 +47,6 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     address public crContract;
     address public dydxWallet;
-    uint256 public toTreasury; // 10% of given amount
-    uint256 public accumulatedFee;
     uint256 public borrowRatio = 1500; // 15% of 10000
 
     //----------------------------//
@@ -51,7 +57,6 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     uint256 public constant USDC_DECIMALS = 6;
     uint256 public constant USD_DECIMALS = 8;
     uint256 public constant ETH_DECIMALS = 18;
-    address public constant ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     address public constant POOL = 0x4bd5643ac6f66a5237E18bfA7d47cF22f1c9F210;
     address public constant WETH_GATEWAY_ADDR =
         0x3bd3a20Ac9Ff1dda1D99C0dFCE6D65C4960B3627;
@@ -74,10 +79,6 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(address => address) public oracles;
     // asset => shareInPool
     mapping(address => uint256) public pools;
-    // uniswap v3 pool token0 => token1 => fee
-    mapping(address => mapping(address => uint24)) public fees;
-    // asset-address => user-address => deposit timestamp
-    mapping(address => mapping(address => uint40)) public usersDepositTimestamp;
     //----------------------------//
     //        Address             //
     //----------------------------//
@@ -88,9 +89,6 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     IPoolV2 internal TrustedAavePool = IPoolV2(POOL);
 
     IERC20 internal TrustedBorrowAsset = IERC20(USDC);
-
-    // Uniswap v3 router
-    ISwapRouter internal Trustedv3router = ISwapRouter(ROUTER);
 
     // Aave Price Oracle
     IAaveOracle internal TrustedAaveOracle = IAaveOracle(AAVE_ORACLE);
@@ -127,6 +125,7 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         string symbol,
         uint8 decimal
     );
+    event Mint(address indexed from, uint256 value, uint256 index);
 
     modifier isApproved(IERC20 _token) {
         if (
@@ -274,29 +273,6 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 Math.Rounding.Zero
             );
     }
-
-    /**
-     * @dev This function will calculate the APY of given asset and amount
-     * @param user address of the user
-     * @param asset address of the asset
-     * @param amount amount of the asset
-     * @return calculate the APY on the given amount
-     */
-    function calculateAPY(
-        address user,
-        address asset,
-        uint256 amount
-    ) public view returns (uint256) {
-        DataTypes.ReserveDataV2 memory reserve = TrustedAavePool.getReserveData(
-            asset
-        );
-        uint256 rate = MathUtils.calculateLinearInterest(
-            reserve.currentLiquidityRate,
-            usersDepositTimestamp[asset][user]
-        );
-        return fromETH(asset,rate.mul(toETH(asset, amount)).div(WadRayMath.RAY));
-    }
-
     //-----------------------------//
     // Internal Mutation Functions //
     //-----------------------------//
@@ -336,22 +312,26 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (crTokens[asset] == address(0)) revert AssetNotAllowed();
 
         if (msg.value > 0) amount = msg.value;
-        uint256 amountToTreasury = amount.mul(toTreasury).div(BASE);
-        uint256 amountToAave = amount.sub(amountToTreasury);
         // adding user amount in the given pool for later share calculation
         pools[asset] = pools[asset].add(amount);
-        usersDepositTimestamp[asset][msg.sender] = uint40(block.timestamp);
 
         if (asset == ETH && msg.value > 0) {
-            depositETH(amountToAave);
+            depositETH(amount);
         } else {
             if (msg.value != 0) revert InvalidDeposit();
             IERC20 token = IERC20(asset);
             // Pull all the given amount from the user address
             require(token.transferFrom(msg.sender, address(this), amount));
-            depositERC20(asset, amountToAave);
+            depositERC20(asset, amount);
         }
-        ICRToken(crTokens[asset]).mint(msg.sender, amount);
+        DataTypes.ReserveDataV2 memory reserve = TrustedAavePool.getReserveData(
+            asset
+        );
+        ICRToken(crTokens[asset]).mint(
+            msg.sender,
+            amount,
+            reserve.liquidityIndex
+        );
         emit DepositEvent(asset, msg.sender, amount);
     }
 
@@ -445,7 +425,9 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (crTokens[asset] == address(0)) revert AssetNotAllowed();
 
         ICRToken crToken = ICRToken(crTokens[asset]);
-        crToken.burn(to, amount);
+        withdrawAmount = amount;
+        if(amount == type(uint256).max)
+            amount = crToken.balanceOf(msg.sender);
 
         uint256 priceFloor = priceFloorOf(asset);
         uint256 amountInUSDC = priceOf(asset).mul(amount);
@@ -459,70 +441,23 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                     .mul(priceFloor)
                     .mul(pow(USDC_DECIMALS))
                     .div(pow(decimals.add(USD_DECIMALS)));
-                ICRToken(USDC_TEST).mint(to, amountInUsdc);
+                IUSDC(USDC_TEST).mint(to, amountInUsdc);
                 withdrawAmount = amountInUsdc;
                 to = dydxWallet;
                 isPriceFloor = true;
             }
         } else {
-            uint256 fromTreasury = amount.mul(toTreasury).div(BASE);
-            uint256 fromAave = amount.sub(fromTreasury);
-            withdrawAmount = calculateAPY(msg.sender, asset, fromAave);
             if (asset == ETH) {
-                withdrawETH(withdrawAmount, to);
+                withdrawETH(amount, to);
             } else {
-                withdrawERC20(asset,withdrawAmount, to);
+                withdrawERC20(asset, amount, to);
             }
-            withdrawAmount += withdrawFromTreasury(asset, amount);
         }
-    }
-
-    /**
-     * @dev Withdraw asset from treasury according to the user shares in the
-     * treasury.
-     * @param asset asset address
-     * @param amount asset amount
-     */
-    function withdrawFromTreasury(address asset, uint256 amount)
-        internal
-        returns (uint256 shareAmount)
-    {
-        uint256 current = balanceOf(asset);
-        shareAmount = amount.mul(current).div(pools[asset]);
-        pools[asset] = pools[asset].sub(amount);
-        if (asset == ETH) {
-            //slither-disable-next-line arbitrary-send
-            if (!payable(msg.sender).send(shareAmount)) revert TransferFailed();
-        } else {
-            if (!IERC20(asset).transfer(msg.sender, shareAmount))
-                revert TransferFailed();
-        }
-    }
-
-    /**
-     * @dev swap given asset to ETH using uniswap v3
-     * @param from given asset , need to be converted into eth
-     * @param amountOut amount which is needed after conversion
-     */
-    function swapToWETH(address from, uint256 amountOut)
-        internal
-        isApproved(IERC20(from))
-        returns (uint256 swapped)
-    {
-        IERC20 token = IERC20(from);
-        swapped = Trustedv3router.exactOutputSingle(
-            ISwapRouter.ExactOutputSingleParams({
-                tokenIn: from,
-                tokenOut: WETH,
-                fee: fees[from][WETH],
-                recipient: address(this),
-                deadline: block.timestamp,
-                amountOut: amountOut,
-                amountInMaximum: token.balanceOf(address(this)),
-                sqrtPriceLimitX96: 0
-            })
+        DataTypes.ReserveDataV2 memory reserve = TrustedAavePool.getReserveData(
+            asset
         );
-        return swapped;
+        
+        crToken.burn(to, amount, reserve.liquidityIndex);
     }
 
     //-----------------------------//
@@ -538,14 +473,5 @@ contract AaveV2Wrapper is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     function changeDyDxWallet(address wallet) public onlyOwner {
         require(wallet != address(0));
         dydxWallet = wallet;
-    }
-
-    function addUniPool(
-        address token0,
-        address token1,
-        uint24 fee
-    ) public onlyOwner {
-        fees[token0][token1] = fee;
-        fees[token1][token0] = fee;
     }
 }

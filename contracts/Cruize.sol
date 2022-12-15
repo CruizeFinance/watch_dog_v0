@@ -65,7 +65,7 @@ contract Cruize is Proxy, AaveV2Wrapper {
         fees[reserve][WETH] = fee;
         fees[WETH][reserve] = fee;
         // slither-disable-next-line reentrancy-events
-        crToken.initialize(name, symbol, decimal);
+        crToken.initialize(name, symbol, decimal,reserve);
         emit CreateTokenEvent(reserve,address(crToken), name, symbol, decimal);
     }
 

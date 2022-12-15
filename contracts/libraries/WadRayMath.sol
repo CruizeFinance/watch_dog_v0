@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity ^0.8.0;
+import "hardhat/console.sol";
+
 
 /**
  * @title WadRayMath library
@@ -88,7 +90,7 @@ library WadRayMath {
     }
 
     require(a <= (type(uint256).max - halfRAY) / b, "48");
-
+    
     return (a * b + halfRAY) / RAY;
   }
 

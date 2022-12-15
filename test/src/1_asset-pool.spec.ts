@@ -379,7 +379,23 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
       );
   });
 
-  it.only("Successfully Deposit WETH by user", async () => {
+  it("Successfully Deposit wBTC by signer", async () => {
+    await expect(
+      cruize
+        .connect(signer)
+        .deposit(parseUnits("1", BigNumber.from(8)), Constants.WBTC, {
+          value: parseEther("0"),
+        })
+    )
+      .to.emit(cruize, "DepositEvent")
+      .withArgs(
+        Constants.WBTC,
+        signer.address,
+        parseUnits("1", BigNumber.from(8))
+      );
+  });
+
+  it("Successfully Deposit WETH by user", async () => {
     await expect(
       cruize
         .connect(user0)
@@ -402,23 +418,7 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     );
   });
 
-  it.only("Successfully Deposit wBTC by signer", async () => {
-    await expect(
-      cruize
-        .connect(signer)
-        .deposit(parseUnits("1", BigNumber.from(8)), Constants.WBTC, {
-          value: parseEther("0"),
-        })
-    )
-      .to.emit(cruize, "DepositEvent")
-      .withArgs(
-        Constants.WBTC,
-        signer.address,
-        parseUnits("1", BigNumber.from(8))
-      );
-  });
-
-  it.only("Successfully Deposit wBTC by user", async () => {
+  it("Successfully Deposit wBTC by user", async () => {
     await expect(
       cruize
         .connect(user0)
@@ -432,6 +432,8 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
         user0.address,
         parseUnits("2", BigNumber.from(8))
       );
+
+    await increaseTime(2 * 86400);
   });
 
   /** @notice its for mainnet testing*/
@@ -515,48 +517,120 @@ describe("TESTING FOR ETH (NATIVE ETH)", function () {
     });
   });
 
-  it.only("Withdraw wETH from signer, when price above the price floor", async () => {
+  it("Withdraw wETH from signer, when price above the price floor", async () => {
     await crWETH.connect(signer).approve(cruize.address, constants.MaxUint256);
+    await crWETH.connect(signer).transfer(user1.address,parseEther("0.5"));
+
+    console.log(
+      "BalanceOf Before Withdrawal: ",
+      await crWETH.callStatic.balanceOf(signer.address)
+    );
+    
+    console.log(
+      "BalanceOf Before Withdrawal: ",
+      await crWETH.callStatic.balanceOf(user0.address)
+    );
+
 
     await expect(
       cruize
         .connect(signer)
-        .withdraw(ethers.utils.parseEther("2"), Constants.WETH_CONTRACT_ADDRESS)
+        .withdraw(
+          constants.MaxUint256,
+          // await crWETH.callStatic.balanceOf(signer.address),
+          Constants.WETH_CONTRACT_ADDRESS
+        )
     ).to.emit(cruize, "WithdrawEvent");
-    
+
+    await increaseTime(3 * 86400);
+
+    console.log(
+      "BalanceOf After Withdrawal: ",
+      await crWETH.callStatic.balanceOf(signer.address)
+    );
+
   });
 
-  it.only("Withdraw wETH from user, when price above the price floor", async () => {
-    await crWETH.connect(user0).approve(cruize.address, constants.MaxUint256);
-
-    await expect(
-      cruize
-        .connect(user0)
-        .withdraw(ethers.utils.parseEther("2"), Constants.WETH_CONTRACT_ADDRESS)
-    ).to.emit(cruize, "WithdrawEvent");
-  });
-
-  it.only("Withdraw wBTC signer, when price above the price floor", async () => {
+  it("Withdraw wBTC signer, when price above the price floor", async () => {
     await crWBTC.connect(signer).approve(cruize.address, constants.MaxUint256);
-   
+
     await expect(
       cruize
         .connect(signer)
-        .withdraw(parseUnits("1", BigNumber.from(8)), Constants.WBTC)
+        .withdraw(
+          await crWBTC.callStatic.balanceOf(signer.address),
+          Constants.WBTC
+        )
     ).to.emit(cruize, "WithdrawEvent");
+    console.log(
+      "BalanceOf: ",
+      await crWBTC.callStatic.balanceOf(signer.address)
+    );
   });
 
-  it.only("Withdraw wBTC user0, when price above the price floor", async () => {
-    await crWBTC.connect(user0).approve(cruize.address, constants.MaxUint256);
-    
+  it("Withdraw wETH from user, when price above the price floor", async () => {
+    await crWETH.connect(user0).approve(cruize.address, constants.MaxUint256);
+    // console.log(await cruize.callStatic.balanceOfAToken(user0.address,Constants.WETH_CONTRACT_ADDRESS));
+
+    console.log(
+      "BalanceOf Before Withdrawal: ",
+      await crWETH.callStatic.balanceOf(user0.address)
+    );
+
+
     await expect(
       cruize
         .connect(user0)
-        .withdraw(parseUnits("2", BigNumber.from(8)), Constants.WBTC)
+        .withdraw(
+          constants.MaxUint256,
+          // await crWETH.callStatic.balanceOf(user0.address),
+          Constants.WETH_CONTRACT_ADDRESS
+        )
+    ).to.emit(cruize, "WithdrawEvent");
+    // console.log(await cruize.callStatic.balanceOfAToken(user0.address,Constants.WETH_CONTRACT_ADDRESS));
+  });
+
+  it("Withdraw wBTC user0, when price above the price floor", async () => {
+    await crWBTC.connect(user0).approve(cruize.address, constants.MaxUint256);
+
+    await expect(
+      cruize
+        .connect(user0)
+        .withdraw(
+          await crWBTC.callStatic.balanceOf(user0.address),
+          Constants.WBTC
+        )
     ).to.emit(cruize, "WithdrawEvent");
   });
 
- 
+  it("Withdraw wETH from user1, when price above the price floor", async () => {
+    await crWETH.connect(user1).approve(cruize.address, constants.MaxUint256);
+    await increaseTime(3 * 86400);
+    await expect(
+      cruize
+        .connect(user1)
+        .withdraw(
+          constants.MaxUint256,
+          // await crWETH.callStatic.balanceOf(user0.address),
+          Constants.WETH_CONTRACT_ADDRESS
+        )
+    ).to.emit(cruize, "WithdrawEvent");
+
+    console.log(
+      "BalanceOf: ",
+      await crWETH.callStatic.balanceOf(signer.address)
+    );
+    console.log(
+      "BalanceOf: ",
+      await crWETH.callStatic.balanceOf(user0.address)
+    );
+    console.log(
+      "BalanceOf: ",
+      await crWETH.callStatic.balanceOf(user1.address)
+    );
+    
+  });
+
   it("Revert, If user doesn't have enough crTokens", async () => {
     await expect(
       cruize
