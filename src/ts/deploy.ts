@@ -3,7 +3,8 @@ import { ethers } from 'hardhat'
 import { DeployResult, DeploymentsExtension } from 'hardhat-deploy/types'
 
 export const contractNames = {
-  AaveV2Wrapper: 'AaveV2Wrapper',
+  CruizeTest: 'CruizeTestnet',
+  CrMaster: 'CRTokenUpgradeable'
 }
 
 /**

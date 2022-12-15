@@ -96,57 +96,6 @@ interface IPoolV2 {
   event RebalanceStableBorrowRate(address indexed reserve, address indexed user);
 
   /**
-   * @dev Emitted on flashLoan()
-   * @param target The address of the flash loan receiver contract
-   * @param initiator The address initiating the flash loan
-   * @param asset The address of the asset being flash borrowed
-   * @param amount The amount flash borrowed
-   * @param premium The fee flash borrowed
-   * @param referralCode The referral code used
-   **/
-  event FlashLoan(
-    address indexed target,
-    address indexed initiator,
-    address indexed asset,
-    uint256 amount,
-    uint256 premium,
-    uint16 referralCode
-  );
-
-  /**
-   * @dev Emitted when the pause is triggered.
-   */
-  event Paused();
-
-  /**
-   * @dev Emitted when the pause is lifted.
-   */
-  event Unpaused();
-
-  /**
-   * @dev Emitted when a borrower is liquidated. This event is emitted by the LendingPool via
-   * LendingPoolCollateral manager using a DELEGATECALL
-   * This allows to have the events in the generated ABI for LendingPool.
-   * @param collateralAsset The address of the underlying asset used as collateral, to receive as result of the liquidation
-   * @param debtAsset The address of the underlying borrowed asset to be repaid with the liquidation
-   * @param user The address of the borrower getting liquidated
-   * @param debtToCover The debt amount of borrowed `asset` the liquidator wants to cover
-   * @param liquidatedCollateralAmount The amount of collateral received by the liiquidator
-   * @param liquidator The address of the liquidator
-   * @param receiveAToken `true` if the liquidators wants to receive the collateral aTokens, `false` if he wants
-   * to receive the underlying collateral asset directly
-   **/
-  event LiquidationCall(
-    address indexed collateralAsset,
-    address indexed debtAsset,
-    address indexed user,
-    uint256 debtToCover,
-    uint256 liquidatedCollateralAmount,
-    address liquidator,
-    bool receiveAToken
-  );
-
-  /**
    * @dev Emitted when the state of a reserve is updated. NOTE: This event is actually declared
    * in the ReserveLogic library and emitted in the updateInterestRates() function. Since the function is internal,
    * the event will actually be fired by the LendingPool contract. The event is therefore replicated here so it
@@ -244,76 +193,6 @@ interface IPoolV2 {
     address onBehalfOf
   ) external returns (uint256);
 
-  /**
-   * @dev Allows a borrower to swap his debt between stable and variable mode, or viceversa
-   * @param asset The address of the underlying asset borrowed
-   * @param rateMode The rate mode that the user wants to swap to
-   **/
-  function swapBorrowRateMode(address asset, uint256 rateMode) external;
-
-  /**
-   * @dev Rebalances the stable interest rate of a user to the current stable rate defined on the reserve.
-   * - Users can be rebalanced if the following conditions are satisfied:
-   *     1. Usage ratio is above 95%
-   *     2. the current deposit APY is below REBALANCE_UP_THRESHOLD * maxVariableBorrowRate, which means that too much has been
-   *        borrowed at a stable rate and depositors are not earning enough
-   * @param asset The address of the underlying asset borrowed
-   * @param user The address of the user to be rebalanced
-   **/
-  function rebalanceStableBorrowRate(address asset, address user) external;
-
-  /**
-   * @dev Allows depositors to enable/disable a specific deposited asset as collateral
-   * @param asset The address of the underlying asset deposited
-   * @param useAsCollateral `true` if the user wants to use the deposit as collateral, `false` otherwise
-   **/
-  function setUserUseReserveAsCollateral(address asset, bool useAsCollateral) external;
-
-  /**
-   * @dev Function to liquidate a non-healthy position collateral-wise, with Health Factor below 1
-   * - The caller (liquidator) covers `debtToCover` amount of debt of the user getting liquidated, and receives
-   *   a proportionally amount of the `collateralAsset` plus a bonus to cover market risk
-   * @param collateralAsset The address of the underlying asset used as collateral, to receive as result of the liquidation
-   * @param debtAsset The address of the underlying borrowed asset to be repaid with the liquidation
-   * @param user The address of the borrower getting liquidated
-   * @param debtToCover The debt amount of borrowed `asset` the liquidator wants to cover
-   * @param receiveAToken `true` if the liquidators wants to receive the collateral aTokens, `false` if he wants
-   * to receive the underlying collateral asset directly
-   **/
-  function liquidationCall(
-    address collateralAsset,
-    address debtAsset,
-    address user,
-    uint256 debtToCover,
-    bool receiveAToken
-  ) external;
-
-  /**
-   * @dev Allows smartcontracts to access the liquidity of the pool within one transaction,
-   * as long as the amount taken plus a fee is returned.
-   * IMPORTANT There are security concerns for developers of flashloan receiver contracts that must be kept into consideration.
-   * For further details please visit https://developers.aave.com
-   * @param receiverAddress The address of the contract receiving the funds, implementing the IFlashLoanReceiver interface
-   * @param assets The addresses of the assets being flash-borrowed
-   * @param amounts The amounts amounts being flash-borrowed
-   * @param modes Types of the debt to open if the flash loan is not returned:
-   *   0 -> Don't open any debt, just revert if funds can't be transferred from the receiver
-   *   1 -> Open debt at stable rate for the value of the amount flash-borrowed to the `onBehalfOf` address
-   *   2 -> Open debt at variable rate for the value of the amount flash-borrowed to the `onBehalfOf` address
-   * @param onBehalfOf The address  that will receive the debt in the case of using on `modes` 1 or 2
-   * @param params Variadic packed params to pass to the receiver as extra information
-   * @param referralCode Code used to register the integrator originating the operation, for potential rewards.
-   *   0 if the action is executed directly by the user, without any middle-man
-   **/
-  function flashLoan(
-    address receiverAddress,
-    address[] calldata assets,
-    uint256[] calldata amounts,
-    uint256[] calldata modes,
-    address onBehalfOf,
-    bytes calldata params,
-    uint16 referralCode
-  ) external;
 
   /**
    * @dev Returns the user account data across all the reserves
@@ -337,53 +216,7 @@ interface IPoolV2 {
       uint256 healthFactor
     );
 
-  function initReserve(
-    address reserve,
-    address aTokenAddress,
-    address stableDebtAddress,
-    address variableDebtAddress,
-    address interestRateStrategyAddress
-  ) external;
-
-  function setReserveInterestRateStrategyAddress(address reserve, address rateStrategyAddress)
-    external;
-
-  function setConfiguration(address reserve, uint256 configuration) external;
-
-  /**
-   * @dev Returns the configuration of the reserve
-   * @param asset The address of the underlying asset of the reserve
-   * @return The configuration of the reserve
-   **/
-  function getConfiguration(address asset)
-    external
-    view
-    returns (DataTypes.ReserveConfigurationMap memory);
-
-  /**
-   * @dev Returns the configuration of the user across all the reserves
-   * @param user The user address
-   * @return The configuration of the user
-   **/
-  function getUserConfiguration(address user)
-    external
-    view
-    returns (DataTypes.UserConfigurationMap memory);
-
-  /**
-   * @dev Returns the normalized income normalized income of the reserve
-   * @param asset The address of the underlying asset of the reserve
-   * @return The reserve's normalized income
-   */
-  function getReserveNormalizedIncome(address asset) external view returns (uint256);
-
-  /**
-   * @dev Returns the normalized variable debt per unit of asset
-   * @param asset The address of the underlying asset of the reserve
-   * @return The reserve normalized variable debt
-   */
-  function getReserveNormalizedVariableDebt(address asset) external view returns (uint256);
-
+  
   /**
    * @dev Returns the state and configuration of the reserve
    * @param asset The address of the underlying asset of the reserve
@@ -391,20 +224,9 @@ interface IPoolV2 {
    **/
   function getReserveData(address asset) external view returns (DataTypes.ReserveDataV2 memory);
 
-  function finalizeTransfer(
-    address asset,
-    address from,
-    address to,
-    uint256 amount,
-    uint256 balanceFromAfter,
-    uint256 balanceToBefore
-  ) external;
+   function getReserveNormalizedIncome(address asset)
+    external
+    view
+    returns (uint256);
 
-  function getReservesList() external view returns (address[] memory);
-
-  function getAddressesProvider() external view returns (IPoolAddressesProvider);
-
-  function setPause(bool val) external;
-
-  function paused() external view returns (bool);
 }
